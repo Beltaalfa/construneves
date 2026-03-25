@@ -1,0 +1,8 @@
+-- Rode este SQL para descobrir o nome correto da coluna de quantidade
+-- na TB_NFV_ITEM_2.
+
+SELECT
+    TRIM(RF.RDB$FIELD_NAME) AS COLUNA
+FROM RDB$RELATION_FIELDS RF
+WHERE RF.RDB$RELATION_NAME = 'TB_NFV_ITEM_2'
+ORDER BY RF.RDB$FIELD_POSITION;

@@ -1,0 +1,18 @@
+[Unit]
+Description=Construneves — Painel Next.js (next start 127.0.0.1:3010)
+After=network.target construneves-painel-api.service
+Requires=construneves-painel-api.service
+
+[Service]
+Type=simple
+User=tactical
+Group=tactical
+WorkingDirectory=/var/www/construneves/painel
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/construneves/.env
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3010 -H 127.0.0.1
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
