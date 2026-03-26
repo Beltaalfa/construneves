@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   IconLayoutDashboard,
   IconDatabase,
@@ -10,8 +10,9 @@ import {
   IconCreditCard,
   IconReceipt,
   IconPackage,
-  IconChartPie,
   IconPercentage,
+  IconShoppingCart,
+  IconTrendingUp,
 } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -35,14 +36,22 @@ const financeItems = [
 
 const estoqueItems = [
   {
-    href: "/dashboard/estoque/giro",
-    label: "Giro de estoque",
-    icon: IconPackage,
+    href: "/dashboard/estoque-e-compras",
+    label: "Estoque e compras",
+    icon: IconShoppingCart,
   },
   {
-    href: "/dashboard/estoque/bcg",
-    label: "Matriz BCG",
-    icon: IconChartPie,
+    href: "/dashboard/estoque-e-compras?tab=cobertura",
+    label: "Giro e cobertura",
+    icon: IconPackage,
+  },
+];
+
+const vendasItems = [
+  {
+    href: "/dashboard/vendas",
+    label: "Vendas",
+    icon: IconTrendingUp,
   },
 ];
 
@@ -66,6 +75,13 @@ function NavIcon({
   );
 }
 
+function navPathAndTab(href: string): { path: string; tab: string | null } {
+  if (!href.includes("?")) return { path: href, tab: null };
+  const [path, query] = href.split("?", 2);
+  const tab = new URLSearchParams(query).get("tab");
+  return { path, tab };
+}
+
 function NavLink({
   href,
   label,
@@ -79,10 +95,23 @@ function NavLink({
   pathname: string | null;
   onNavigate: () => void;
 }) {
-  const active =
-    href === "/"
-      ? pathname === "/"
-      : pathname === href || pathname?.startsWith(`${href}/`);
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab");
+  const { path, tab: hrefTab } = navPathAndTab(href);
+
+  let active = false;
+  if (href === "/") {
+    active = pathname === "/";
+  } else if (hrefTab !== null) {
+    active = pathname === path && currentTab === hrefTab;
+  } else if (path === "/dashboard/estoque-e-compras") {
+    active =
+      pathname === path &&
+      (currentTab === null || currentTab === "visao");
+  } else {
+    active =
+      pathname === path || Boolean(pathname?.startsWith(`${path}/`));
+  }
   const linkClass = active
     ? "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors bg-zinc-800 text-white"
     : "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200";
@@ -125,6 +154,16 @@ export function Sidebar() {
         </p>
         <div className="flex flex-col gap-1">
           {estoqueItems.map((item) => (
+            <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+          Vendas
+        </p>
+        <div className="flex flex-col gap-1">
+          {vendasItems.map((item) => (
             <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
           ))}
         </div>

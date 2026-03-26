@@ -1,45 +1,22 @@
-import { formatBRL, formatInt, formatNumber } from "@/lib/format";
+import { TableExportXlsxButton } from "@/components/dashboard/TableExportXlsxButton";
+import { formatInt } from "@/lib/format";
+import { formatDashboardCell } from "@/lib/table-cell-format";
 
 type Row = Record<string, unknown>;
-
-function isNumericKey(key: string): boolean {
-  const u = key.toUpperCase();
-  return (
-    u.includes("VLR") ||
-    u.includes("VALOR") ||
-    u.includes("SALDO") ||
-    u.includes("QTD") ||
-    u.includes("QUANT") ||
-    u.includes("PREÇO") ||
-    u.includes("PRECO") ||
-    u.endsWith("_RS") ||
-    u.includes("MARGEM") ||
-    u.includes("PARTICIP")
-  );
-}
-
-function formatCell(key: string, val: unknown): string {
-  if (val == null) return "—";
-  if (typeof val === "boolean") return val ? "Sim" : "Não";
-  const u = key.toUpperCase();
-  if (u.includes("VLR") || u.includes("VALOR") || u.includes("SALDO"))
-    return formatBRL(val);
-  if (isNumericKey(key) && typeof val === "number")
-    return formatNumber(val, 2);
-  if (typeof val === "number") return formatNumber(val, 2);
-  return String(val);
-}
 
 export function DynamicTable({
   rows,
   columns,
   title,
   maxHeightClass = "max-h-[420px]",
+  exportFileName,
 }: {
   rows: Row[];
   columns?: string[];
   title?: string;
   maxHeightClass?: string;
+  /** Se definido, mostra botão de exportação XLSX com estas colunas. */
+  exportFileName?: string;
 }) {
   if (!rows.length) {
     return (
@@ -55,9 +32,22 @@ export function DynamicTable({
 
   return (
     <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/30 overflow-hidden flex flex-col">
-      {title ? (
-        <div className="px-4 py-3 border-b border-zinc-800">
-          <h3 className="text-sm font-medium text-zinc-300">{title}</h3>
+      {title || exportFileName ? (
+        <div
+          className={`px-4 py-3 border-b border-zinc-800 flex flex-wrap items-center gap-2 ${
+            exportFileName ? "justify-between" : ""
+          }`}
+        >
+          {title ? (
+            <h3 className="text-sm font-medium text-zinc-300">{title}</h3>
+          ) : null}
+          {exportFileName ? (
+            <TableExportXlsxButton
+              rows={rows as Record<string, unknown>[]}
+              columnKeys={keys}
+              fileNameBase={exportFileName}
+            />
+          ) : null}
         </div>
       ) : null}
       <div className={`overflow-auto ${maxHeightClass}`}>
@@ -86,7 +76,7 @@ export function DynamicTable({
                     className="px-3 py-2 text-zinc-200 whitespace-nowrap max-w-[220px] truncate"
                     title={String(row[k] ?? "")}
                   >
-                    {formatCell(k, row[k])}
+                    {formatDashboardCell(k, row[k])}
                   </td>
                 ))}
               </tr>

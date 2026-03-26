@@ -1,0 +1,8 @@
+-- Documentação — módulo Vendas (painel)
+-- TB_NFVENDA_2: NF de saída. Regra: FIM = 'Finalizado'; DT_SAIDA para período.
+-- TB_NFV_ITEM_2: QTD_ITEM, VLR_TOTAL (bruto linha), VLR_DESC (desconto linha), VLR_CUSTO.
+-- Total líquido por linha (aprox.): VLR_TOTAL - VLR_DESC. Margem bruta R$: (VLR_TOTAL - VLR_DESC) - VLR_CUSTO.
+-- Vendedor: N.ID_VENDEDOR = V_FUNC_VENDEDOR.ID_FUNCIONARIO (NOME).
+-- Cliente: N.ID_CLIENTE → TB_CLIENTE.NOME.
+-- Forma de pagamento: V_NFVENDA_PAGAMENTOS (ID_NFVENDA) — DESC_FORMAPAGAMENTO, VLR_PAGTO.
+-- Cabeçalho N.DESCONTO existe; relatórios por item usam principalmente somas de linha.

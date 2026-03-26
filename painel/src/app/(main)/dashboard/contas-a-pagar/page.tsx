@@ -1,3 +1,5 @@
+import { ContasPagarEvolucaoMensalChart } from "@/components/dashboard/ContasPagarEvolucaoMensalChart";
+import { ContasPagarMatrixHierarquia } from "@/components/dashboard/ContasPagarMatrixHierarquia";
 import { DashboardBarChart } from "@/components/dashboard/DashboardBarChart";
 import { DynamicTable } from "@/components/dashboard/DynamicTable";
 import { KpiCard } from "@/components/dashboard/KpiCard";
@@ -11,6 +13,9 @@ export default async function ContasPagarDashboardPage() {
     kpis?: Kpis;
     rows?: Record<string, unknown>[];
     chart_top_fornecedores?: { name: string; valor: number }[];
+    evolucao_mes?: Record<string, unknown>[];
+    ano_evolucao_mensal?: number;
+    matriz_hierarquia?: Record<string, unknown>[];
   } = {};
   let err: string | null = null;
   try {
@@ -69,9 +74,16 @@ export default async function ContasPagarDashboardPage() {
         <KpiCard
           label="Prazo médio (emisão → venc.)"
           value={`${formatNumber(k.PRAZO_MEDIO_DIAS, 1)} dias`}
-          hint="Média nos títulos em aberto"
+          hint="Média apenas em títulos já quitados (saldo zero)"
         />
       </div>
+
+      <ContasPagarEvolucaoMensalChart
+        ano={payload.ano_evolucao_mensal ?? new Date().getFullYear()}
+        data={payload.evolucao_mes ?? []}
+      />
+
+      <ContasPagarMatrixHierarquia rows={payload.matriz_hierarquia ?? []} />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <DashboardBarChart
@@ -93,6 +105,7 @@ export default async function ContasPagarDashboardPage() {
             "VALOR_PAGO",
             "SALDO_ABERTO",
           ]}
+          exportFileName="contas-a-pagar-analitico"
         />
       </div>
     </div>

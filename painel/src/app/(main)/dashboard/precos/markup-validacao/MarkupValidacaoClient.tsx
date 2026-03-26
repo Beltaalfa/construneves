@@ -6,6 +6,7 @@ import {
   type MarkupRow,
   type MarkupSortKey,
 } from "@/components/dashboard/ValidationMarkupTable";
+import { TableExportXlsxButton } from "@/components/dashboard/TableExportXlsxButton";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -17,6 +18,18 @@ export type ValidacaoPreset =
   | "DIVERGENTE"
   | "SEM CUSTO"
   | "MARKUP_LT_40";
+
+const MARKUP_XLSX_COLS = [
+  "COD_PRODUTO",
+  "PRODUTO",
+  "CUSTO",
+  "VENDA",
+  "DIF_MARKUP_PCT",
+  "MARKUP_SISTEMA_PCT",
+  "MARKUP_CALCULADO_PCT",
+  "MARGEM_BRUTA_PCT",
+  "VALIDACAO",
+] as const;
 
 type Stats = {
   total_produtos?: number;
@@ -155,14 +168,22 @@ export function MarkupValidacaoClient({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={clearFilters}
-          disabled={!hasActiveFilter}
-        >
-          Limpar filtros
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <TableExportXlsxButton
+            rows={filteredSorted as Record<string, unknown>[]}
+            columnKeys={[...MARKUP_XLSX_COLS]}
+            fileNameBase="markup-validacao"
+            disabled={!!errorText}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={clearFilters}
+            disabled={!hasActiveFilter}
+          >
+            Limpar filtros
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
