@@ -16,6 +16,10 @@ export default async function HomePage() {
   const dashLinks = [
     { href: "/dashboard/contas-a-pagar", label: "Contas a pagar" },
     { href: "/dashboard/contas-a-receber", label: "Contas a receber" },
+    {
+      href: "/dashboard/financeiro/contas-bancarias-saldos",
+      label: "Saldos em contas (hoje)",
+    },
     { href: "/dashboard/estoque-e-compras", label: "Estoque e compras" },
     { href: "/dashboard/vendas", label: "Vendas" },
     { href: "/dashboard/precos/markup-validacao", label: "Validação MarkUP" },

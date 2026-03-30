@@ -6,6 +6,7 @@ import {
   IconLayoutDashboard,
   IconDatabase,
   IconMenu2,
+  IconBuildingBank,
   IconX,
   IconCreditCard,
   IconReceipt,
@@ -31,6 +32,11 @@ const financeItems = [
     href: "/dashboard/contas-a-receber",
     label: "Contas a receber",
     icon: IconReceipt,
+  },
+  {
+    href: "/dashboard/financeiro/contas-bancarias-saldos",
+    label: "Saldos bancários",
+    icon: IconBuildingBank,
   },
 ];
 

@@ -1275,3 +1275,36 @@ def dash_vendas_por_periodo_produto(
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+def _contas_bancarias_saldos_payload(incluir_inativas: bool) -> dict[str, Any]:
+    base = _load_sql("contas_bancarias_saldos_hoje.sql")
+    filt = "" if incluir_inativas else "WHERE TRIM(C.STATUS) = 'A'"
+    sql = f"{base}\n{filt}\nORDER BY TRIM(C.DESCRICAO)"
+    _, rows = _execute(sql, max_rows=None)
+    ref = date.today().isoformat()
+    tot_disp = sum(float(r.get("SALDO_DISPONIVEL") or 0) for r in rows)
+    tot_conc = sum(float(r.get("SALDO_CONCILIADO") or 0) for r in rows)
+    return {
+        "data_referencia": ref,
+        "incluir_inativas": incluir_inativas,
+        "totais": {
+            "qtd_contas": len(rows),
+            "saldo_disponivel": round(tot_disp, 2),
+            "saldo_conciliado": round(tot_conc, 2),
+        },
+        "rows": rows,
+    }
+
+
+@router.get("/financeiro/contas-bancarias/saldos")
+def dash_contas_bancarias_saldos(
+    incluir_inativas: bool = Query(False, description="Incluir contas com STATUS diferente de A"),
+):
+    """Saldos por conta na data de hoje (campos SD_REAL e SD_BANCO do cadastro CLIPP)."""
+    try:
+        return _contas_bancarias_saldos_payload(incluir_inativas)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
