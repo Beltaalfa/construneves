@@ -10,6 +10,7 @@ type Payload = {
   totais?: {
     qtd_contas?: number;
     saldo_disponivel?: number;
+    saldo_talao_contabil?: number;
     saldo_conciliado?: number;
   };
   rows?: Record<string, unknown>[];
@@ -43,10 +44,7 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
     "BANCO",
     "AGENCIA",
     "CONTA_CORRENTE",
-    "STATUS",
-    "TIPO_CONTA",
     "SALDO_DISPONIVEL",
-    "SALDO_CONCILIADO",
     "SALDO_TALAO_CONTABIL",
     "DATA_ULTIMA_CONCILIACAO",
   ];
@@ -61,10 +59,10 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
           <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
             Posição na data de hoje ({ref || "—"}) conforme cadastro CLIPP (
             <code className="text-zinc-500">TB_BANCO_CTA</code>): saldo
-            disponível (<code className="text-zinc-500">SD_REAL</code>) e saldo
-            conciliado (<code className="text-zinc-500">SD_BANCO</code>).
-            Inclui também o saldo em livro (
-            <code className="text-zinc-500">SD_TALAO</code>) para conferência.
+            disponível (
+            <code className="text-zinc-500">SD_REAL</code>) e saldo em livro (
+            <code className="text-zinc-500">SD_TALAO</code>), com data da última
+            conciliação quando houver.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs shrink-0">
@@ -99,7 +97,7 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <KpiCard
           label="Contas listadas"
           value={formatInt(t.qtd_contas)}
@@ -107,14 +105,11 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
         />
         <KpiCard
           label="Total saldo disponível"
-          value={formatBRL(t.saldo_disponivel)}
+          value={formatBRL(
+            t.saldo_talao_contabil ?? t.saldo_disponivel,
+          )}
+          hint="Total pela soma do saldo em livro (SD_TALAO) nas contas listadas."
           variant="accent"
-        />
-        <KpiCard
-          label="Total saldo conciliado"
-          value={formatBRL(t.saldo_conciliado)}
-          hint="Soma de SD_BANCO; pode ficar zerado se a conciliação não atualizou o campo."
-          variant="default"
         />
       </div>
 

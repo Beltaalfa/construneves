@@ -62,6 +62,7 @@ def _merge_evolucao_pagar_mes(
 
 _rows_to_dicts: Callable | None = None
 _firebird_connection: Callable | None = None
+_CONTAS_BANCARIAS_IGNORAR = frozenset({1, 2, 3})
 
 
 def wire(rows_fn: Callable, conn_cm: Callable) -> None:
@@ -1282,8 +1283,15 @@ def _contas_bancarias_saldos_payload(incluir_inativas: bool) -> dict[str, Any]:
     filt = "" if incluir_inativas else "WHERE TRIM(C.STATUS) = 'A'"
     sql = f"{base}\n{filt}\nORDER BY TRIM(C.DESCRICAO)"
     _, rows = _execute(sql, max_rows=None)
+    # Regra de negócio: desconsiderar contas específicas do cadastro.
+    rows = [
+        r
+        for r in rows
+        if int(r.get("ID_CONTA") or 0) not in _CONTAS_BANCARIAS_IGNORAR
+    ]
     ref = date.today().isoformat()
     tot_disp = sum(float(r.get("SALDO_DISPONIVEL") or 0) for r in rows)
+    tot_talao = sum(float(r.get("SALDO_TALAO_CONTABIL") or 0) for r in rows)
     tot_conc = sum(float(r.get("SALDO_CONCILIADO") or 0) for r in rows)
     return {
         "data_referencia": ref,
@@ -1291,6 +1299,7 @@ def _contas_bancarias_saldos_payload(incluir_inativas: bool) -> dict[str, Any]:
         "totais": {
             "qtd_contas": len(rows),
             "saldo_disponivel": round(tot_disp, 2),
+            "saldo_talao_contabil": round(tot_talao, 2),
             "saldo_conciliado": round(tot_conc, 2),
         },
         "rows": rows,
