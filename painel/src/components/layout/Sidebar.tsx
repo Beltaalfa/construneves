@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   IconLayoutDashboard,
-  IconDatabase,
   IconMenu2,
   IconBuildingBank,
   IconX,
@@ -14,15 +13,18 @@ import {
   IconPercentage,
   IconShoppingCart,
   IconTrendingUp,
+  IconCalendarStats,
 } from "@tabler/icons-react";
 import { useState } from "react";
 
-const mainItems = [
-  { href: "/", label: "Início", icon: IconLayoutDashboard },
-  { href: "/amostra", label: "Amostra Firebird", icon: IconDatabase },
-];
+const mainItems = [{ href: "/", label: "Início", icon: IconLayoutDashboard }];
 
 const financeItems = [
+  {
+    href: "/dashboard/resumo-diario",
+    label: "Resumo do dia",
+    icon: IconCalendarStats,
+  },
   {
     href: "/dashboard/contas-a-pagar",
     label: "Contas a pagar",

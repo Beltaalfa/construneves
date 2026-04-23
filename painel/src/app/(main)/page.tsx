@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { internalFetch } from "@/lib/internal-api";
 
 export default async function HomePage() {
@@ -14,6 +13,7 @@ export default async function HomePage() {
   const ok = health.firebird === true;
 
   const dashLinks = [
+    { href: "/dashboard/resumo-diario", label: "Resumo do dia" },
     { href: "/dashboard/contas-a-pagar", label: "Contas a pagar" },
     { href: "/dashboard/contas-a-receber", label: "Contas a receber" },
     {
@@ -54,11 +54,6 @@ export default async function HomePage() {
         {!ok && health.error ? (
           <p className="text-sm text-red-400/90">{health.error}</p>
         ) : null}
-        <div className="flex flex-wrap gap-2">
-          <Link href="/amostra">
-            <Button variant="secondary">Tabelas (amostra)</Button>
-          </Link>
-        </div>
       </div>
 
       <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/20 p-5">

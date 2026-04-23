@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Callable
 
@@ -63,6 +62,8 @@ def _merge_evolucao_pagar_mes(
 _rows_to_dicts: Callable | None = None
 _firebird_connection: Callable | None = None
 _CONTAS_BANCARIAS_IGNORAR = frozenset({1, 2, 3})
+# Conta de adquirente (ex.: SIPAG) — entra em “cartões a receber”, fora do total bancos.
+_ID_CONTA_SIPAG_CARTOES = 6
 
 
 def wire(rows_fn: Callable, conn_cm: Callable) -> None:
@@ -110,13 +111,13 @@ def _one_row(sql: str) -> dict:
     return rows[0] if rows else {}
 
 
-@lru_cache
 def _giro_fragment_sql() -> str:
+    """Sem cache: alterações em estoque_giro_fragment.sql passam a valer após reload do processo."""
     return _load_sql("estoque_giro_fragment.sql")
 
 
-@lru_cache
 def _bcg_fragment_sql() -> str:
+    """Sem cache: alterações em estoque_bcg_fragment.sql refletem sem depender de LRU."""
     return _load_sql("estoque_bcg_fragment.sql")
 
 
@@ -132,6 +133,7 @@ _GIRO_CATEGORIA = frozenset(
 _GIRO_FAIXA_MARGEM = frozenset(
     {"< 20%", "20% - 40%", "40% - 60%", ">= 60%", "SEM VENDA"}
 )
+_GIRO_SALDO = frozenset({"NEGATIVO", "ZERO", "POSITIVO"})
 _BCG_CLASSE = frozenset({"ESTRELA", "VACA LEITEIRA", "PONTO INTERROGACAO", "ABACAXI"})
 
 # Colunas permitidas em ORDER BY (GIRO)
@@ -140,6 +142,8 @@ _GIRO_SORT_COLS: dict[str, str] = {
     "ITEM": "G.ITEM",
     "REFERENCIA": "G.REFERENCIA",
     "ID_GRUPO": "G.ID_GRUPO",
+    "CODIGO_ITEM": "G.CODIGO_ITEM",
+    "CATEGORIA": "G.CATEGORIA",
     "ID_NIVEL1": "G.ID_NIVEL1",
     "ID_NIVEL2": "G.ID_NIVEL2",
     "QUANT_ESTOQUE": "G.QUANT_ESTOQUE",
@@ -192,6 +196,9 @@ def _giro_where_clause(
     sugestao_gt_zero: bool,
     faixa_margem: str | None = None,
     saldo_negativo_only: bool = False,
+    saldo_tipo: str | None = None,
+    estoque_dias_min: float | None = None,
+    estoque_dias_max: float | None = None,
 ) -> str:
     parts = ["1=1"]
     if id_grupo is not None:
@@ -210,6 +217,17 @@ def _giro_where_clause(
         parts.append(f"G.FAIXA_MARGEM = {_sql_str_literal(faixa_margem)}")
     if saldo_negativo_only:
         parts.append("G.QUANT_ESTOQUE < 0")
+    if saldo_tipo and saldo_tipo in _GIRO_SALDO:
+        if saldo_tipo == "NEGATIVO":
+            parts.append("G.QUANT_ESTOQUE < 0")
+        elif saldo_tipo == "ZERO":
+            parts.append("G.QUANT_ESTOQUE = 0")
+        elif saldo_tipo == "POSITIVO":
+            parts.append("G.QUANT_ESTOQUE > 0")
+    if estoque_dias_min is not None:
+        parts.append(f"G.ESTOQUE_EM_DIAS >= {float(estoque_dias_min)}")
+    if estoque_dias_max is not None:
+        parts.append(f"G.ESTOQUE_EM_DIAS <= {float(estoque_dias_max)}")
     return " AND ".join(parts)
 
 
@@ -304,11 +322,15 @@ def dash_contas_a_pagar():
     SELECT
       COUNT(DISTINCT P.ID_CTAPAG) AS QTD_TITULOS,
       COUNT(DISTINCT P.ID_FORNEC) AS QTD_FORNECEDORES,
-      COALESCE(SUM(P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)), 0) AS SALDO_TOTAL_ABERTO,
+      COALESCE(SUM(
+        CASE WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0 ELSE P.VLR_CTAPAG END
+      ), 0) AS SALDO_TOTAL_ABERTO,
       COALESCE(SUM(CASE WHEN P.DT_VENCTO < CURRENT_DATE
-        THEN P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0) ELSE 0 END), 0) AS SALDO_ATRASADO,
+        THEN CASE WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0 ELSE P.VLR_CTAPAG END
+        ELSE 0 END), 0) AS SALDO_ATRASADO,
       COALESCE(SUM(CASE WHEN P.DT_VENCTO >= CURRENT_DATE
-        THEN P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0) ELSE 0 END), 0) AS SALDO_A_VENCER,
+        THEN CASE WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0 ELSE P.VLR_CTAPAG END
+        ELSE 0 END), 0) AS SALDO_A_VENCER,
       (SELECT COALESCE(
           AVG(CAST(PQ.DT_VENCTO - PQ.DT_EMISSAO AS DOUBLE PRECISION)), 0)
        FROM TB_CONTA_PAGAR PQ
@@ -318,7 +340,7 @@ def dash_contas_a_pagar():
            GROUP BY ID_CTAPAG
        ) BQ ON BQ.ID_CTAPAG = PQ.ID_CTAPAG
        WHERE PQ.VLR_CTAPAG > 0
-         AND (PQ.VLR_CTAPAG - COALESCE(BQ.VLR_PAGO_TOTAL, 0)) <= 0
+         AND COALESCE(BQ.VLR_PAGO_TOTAL, 0) > 0.005
       ) AS PRAZO_MEDIO_DIAS
     FROM TB_CONTA_PAGAR P
     LEFT JOIN (
@@ -326,7 +348,8 @@ def dash_contas_a_pagar():
         FROM TB_CTAPAG_BAIXA
         GROUP BY ID_CTAPAG
     ) B ON B.ID_CTAPAG = P.ID_CTAPAG
-    WHERE (P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)) > 0
+    WHERE P.VLR_CTAPAG > 0.005
+      AND COALESCE(B.VLR_PAGO_TOTAL, 0) <= 0.005
     """
     sql_mes_pago = """
     SELECT
@@ -342,14 +365,17 @@ def dash_contas_a_pagar():
     sql_mes_saldo_venc = """
     SELECT
       CAST(EXTRACT(MONTH FROM P.DT_VENCTO) AS INTEGER) AS MES_NUM,
-      COALESCE(SUM(P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)), 0) AS VALOR
+      COALESCE(SUM(
+        CASE WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0 ELSE P.VLR_CTAPAG END
+      ), 0) AS VALOR
     FROM TB_CONTA_PAGAR P
     LEFT JOIN (
         SELECT ID_CTAPAG, SUM(VLR_PAGO) AS VLR_PAGO_TOTAL
         FROM TB_CTAPAG_BAIXA
         GROUP BY ID_CTAPAG
     ) B ON B.ID_CTAPAG = P.ID_CTAPAG
-    WHERE (P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)) > 0
+    WHERE P.VLR_CTAPAG > 0.005
+      AND COALESCE(B.VLR_PAGO_TOTAL, 0) <= 0.005
       AND CAST(EXTRACT(YEAR FROM P.DT_VENCTO) AS INTEGER)
         = CAST(EXTRACT(YEAR FROM CURRENT_DATE) AS INTEGER)
     GROUP BY 1
@@ -642,6 +668,9 @@ def _fetch_giro_itens(
     sort_dir: str | None = None,
     faixa_margem: str | None = None,
     saldo_negativo_only: bool = False,
+    saldo_tipo: str | None = None,
+    estoque_dias_min: float | None = None,
+    estoque_dias_max: float | None = None,
 ) -> dict:
     frag = _giro_fragment_sql()
     w = _giro_where_clause(
@@ -653,6 +682,9 @@ def _fetch_giro_itens(
         sugestao_gt_zero,
         faixa_margem=faixa_margem,
         saldo_negativo_only=saldo_negativo_only,
+        saldo_tipo=saldo_tipo,
+        estoque_dias_min=estoque_dias_min,
+        estoque_dias_max=estoque_dias_max,
     )
     order = _giro_order_clause(sort_col, sort_dir, sort)
     sql_cnt = frag + f"\nSELECT COUNT(*) AS CNT FROM GIRO G WHERE {w}"
@@ -687,6 +719,9 @@ def dash_estoque_giro_itens(
     sort_dir: str | None = None,
     faixa_margem: str | None = None,
     saldo_negativo_only: bool = False,
+    saldo_tipo: str | None = None,
+    estoque_dias_min: float | None = Query(None, ge=0),
+    estoque_dias_max: float | None = Query(None, ge=0),
 ):
     try:
         sd = (sort_dir or "").upper() if sort_dir else None
@@ -706,6 +741,9 @@ def dash_estoque_giro_itens(
             sort_dir=sd,
             faixa_margem=faixa_margem,
             saldo_negativo_only=saldo_negativo_only,
+            saldo_tipo=(saldo_tipo or "").upper() or None,
+            estoque_dias_min=estoque_dias_min,
+            estoque_dias_max=estoque_dias_max,
         )
     except HTTPException:
         raise
@@ -1289,20 +1327,31 @@ def _contas_bancarias_saldos_payload(incluir_inativas: bool) -> dict[str, Any]:
         for r in rows
         if int(r.get("ID_CONTA") or 0) not in _CONTAS_BANCARIAS_IGNORAR
     ]
+    id_sip = _ID_CONTA_SIPAG_CARTOES
+    rows_bancos = [r for r in rows if int(r.get("ID_CONTA") or 0) != id_sip]
+    rows_cartoes = [r for r in rows if int(r.get("ID_CONTA") or 0) == id_sip]
     ref = date.today().isoformat()
-    tot_disp = sum(float(r.get("SALDO_DISPONIVEL") or 0) for r in rows)
-    tot_talao = sum(float(r.get("SALDO_TALAO_CONTABIL") or 0) for r in rows)
-    tot_conc = sum(float(r.get("SALDO_CONCILIADO") or 0) for r in rows)
+
+    def _totais(rs: list) -> dict[str, Any]:
+        t_disp = sum(float(x.get("SALDO_DISPONIVEL") or 0) for x in rs)
+        t_tal = sum(float(x.get("SALDO_TALAO_CONTABIL") or 0) for x in rs)
+        t_conc = sum(float(x.get("SALDO_CONCILIADO") or 0) for x in rs)
+        return {
+            "qtd_contas": len(rs),
+            "saldo_disponivel": round(t_disp, 2),
+            "saldo_talao_contabil": round(t_tal, 2),
+            "saldo_conciliado": round(t_conc, 2),
+        }
+
     return {
         "data_referencia": ref,
         "incluir_inativas": incluir_inativas,
-        "totais": {
-            "qtd_contas": len(rows),
-            "saldo_disponivel": round(tot_disp, 2),
-            "saldo_talao_contabil": round(tot_talao, 2),
-            "saldo_conciliado": round(tot_conc, 2),
+        "totais": _totais(rows_bancos),
+        "rows": rows_bancos,
+        "cartoes_receber": {
+            "totais": _totais(rows_cartoes),
+            "rows": rows_cartoes,
         },
-        "rows": rows,
     }
 
 
@@ -1313,6 +1362,151 @@ def dash_contas_bancarias_saldos(
     """Saldos por conta na data de hoje (campos SD_REAL e SD_BANCO do cadastro CLIPP)."""
     try:
         return _contas_bancarias_saldos_payload(incluir_inativas)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+# Bases muito abaixo de 1 R$ produzem variações % com pouco significado (ruído).
+_PCT_MOM_MIN_BASE_BRL = 1.0
+
+
+def _pct_mom(current: float, previous: float) -> float | None:
+    """% var. (atual - anterior) / |anterior| vs período homólogo, valores ≥ 0 (baixas, notas)."""
+    if abs(previous) < _PCT_MOM_MIN_BASE_BRL:
+        return None
+    return round(((current - previous) / previous) * 100.0, 2)
+
+
+def _pct_mom_fluxo(current: float, previous: float) -> float | None:
+    """
+    % homóloga do fluxo (recebimentos − pagamentos). Com o mesmo sinal no atual e
+    no mês passado, usa (atual−anterior)/anterior. Se os sinais forem opostos
+    (ex. mês passado com saída líquida e mês atual com entrada), usa
+    (atual−anterior)/|anterior| para a % não ficar com denominador negativo
+    inútil.
+    """
+    if abs(previous) < _PCT_MOM_MIN_BASE_BRL:
+        return None
+    if current * previous < 0:
+        return round((current - previous) / abs(previous) * 100.0, 2)
+    return round(((current - previous) / previous) * 100.0, 2)
+
+
+def _float_metric(row: dict, key: str) -> float:
+    v = row.get(key)
+    if v is None:
+        return 0.0
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _row_keys_upper(row: dict) -> dict:
+    return {
+        (k.strip().upper() if isinstance(k, str) else k): v for k, v in row.items()
+    }
+
+
+def _dash_resumo_diario_payload() -> dict[str, Any]:
+    row = _row_keys_upper(_one_row(_load_sql("resumo_diario.sql")))
+    saldo_payload = _contas_bancarias_saldos_payload(False)
+    tot = saldo_payload["totais"]
+    crb = saldo_payload.get("cartoes_receber") or {}
+    tcr = crb.get("totais") or {}
+    disponivel = float(tot.get("saldo_disponivel") or 0)
+    qtd_contas = int(tot.get("qtd_contas") or 0)
+    cr_disp = float(tcr.get("saldo_disponivel") or 0)
+    cr_qtd = int(tcr.get("qtd_contas") or 0)
+    ref = str(saldo_payload.get("data_referencia") or date.today().isoformat())
+
+    ph = _float_metric(row, "PAGAR_HOJE")
+    pm = _float_metric(row, "PAGAR_MTD")
+    pha = _float_metric(row, "PAGAR_DIA_MES_ANT")
+    pma = _float_metric(row, "PAGAR_MTD_MES_ANT")
+    p_mes_cal = _float_metric(row, "PAGAR_MES_CAL")
+
+    rh = _float_metric(row, "RECEBER_HOJE")
+    rm = _float_metric(row, "RECEBER_MTD")
+    rha = _float_metric(row, "RECEBER_DIA_MES_ANT")
+    rma = _float_metric(row, "RECEBER_MTD_MES_ANT")
+    r_mes_cal = _float_metric(row, "RECEBER_MES_CAL")
+
+    vh = _float_metric(row, "VENDAS_HOJE")
+    vm = _float_metric(row, "VENDAS_MTD")
+    vha = _float_metric(row, "VENDAS_DIA_MES_ANT")
+    vma = _float_metric(row, "VENDAS_MTD_MES_ANT")
+    v_mes_cal = _float_metric(row, "VENDAS_MES_CAL")
+
+    fluxo_dia = rh - ph
+    fluxo_mtd = rm - pm
+    fluxo_dia_ant = rha - pha
+    fluxo_mtd_ant = rma - pma
+
+    return {
+        "data_referencia": ref,
+        "saldo_bancario": {
+            "disponivel": round(disponivel, 2),
+            "qtd_contas": qtd_contas,
+            "cartoes_receber": {
+                "disponivel": round(cr_disp, 2),
+                "qtd_contas": cr_qtd,
+            },
+            "pct_mom": None,
+        },
+        "contas_pagar_baixas": {
+            "hoje": round(ph, 2),
+            "mtd": round(pm, 2),
+            "mes_calendario": round(p_mes_cal, 2),
+            "hoje_mes_passado": round(pha, 2),
+            "mtd_mes_passado": round(pma, 2),
+            # Comparativo "calendário CLIPP": % e ref. vs MTD homólogo (1.º → mesma data, mês passado)
+            "mes_calendario_mes_passado": round(pma, 2),
+            "pct_mom_hoje": _pct_mom(ph, pha),
+            "pct_mom_mtd": _pct_mom(pm, pma),
+            "pct_mom_mes_calendario": _pct_mom(p_mes_cal, pma),
+        },
+        "contas_receber_baixas": {
+            "hoje": round(rh, 2),
+            "mtd": round(rm, 2),
+            "mes_calendario": round(r_mes_cal, 2),
+            "hoje_mes_passado": round(rha, 2),
+            "mtd_mes_passado": round(rma, 2),
+            "mes_calendario_mes_passado": round(rma, 2),
+            "pct_mom_hoje": _pct_mom(rh, rha),
+            "pct_mom_mtd": _pct_mom(rm, rma),
+            "pct_mom_mes_calendario": _pct_mom(r_mes_cal, rma),
+        },
+        "vendas_liquido": {
+            "hoje": round(vh, 2),
+            "mtd": round(vm, 2),
+            "mes_calendario": round(v_mes_cal, 2),
+            "hoje_mes_passado": round(vha, 2),
+            "mtd_mes_passado": round(vma, 2),
+            "mes_calendario_mes_passado": round(vma, 2),
+            "pct_mom_hoje": _pct_mom(vh, vha),
+            "pct_mom_mtd": _pct_mom(vm, vma),
+            "pct_mom_mes_calendario": _pct_mom(v_mes_cal, vma),
+        },
+        "totais_fluxo": {
+            "formula": "recebimentos (baixas a receber) − pagamentos (hoje só T; MTD T+P)",
+            "hoje": round(fluxo_dia, 2),
+            "mtd": round(fluxo_mtd, 2),
+            "hoje_mes_passado": round(fluxo_dia_ant, 2),
+            "mtd_mes_passado": round(fluxo_mtd_ant, 2),
+            "pct_mom_hoje": _pct_mom_fluxo(fluxo_dia, fluxo_dia_ant),
+            "pct_mom_mtd": _pct_mom_fluxo(fluxo_mtd, fluxo_mtd_ant),
+        },
+    }
+
+
+@router.get("/resumo-diario")
+def dash_resumo_diario():
+    """KPIs do dia e MTD vs mês anterior (baixas + vendas NF; fluxo = recebimentos − pagos)."""
+    try:
+        return _dash_resumo_diario_payload()
     except HTTPException:
         raise
     except Exception as e:

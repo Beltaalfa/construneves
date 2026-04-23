@@ -1,6 +1,7 @@
 -- Contas a pagar analítico: título a título por fornecedor
--- Cada linha = um título. Saldo = valor do título menos baixas (pagamentos).
--- Para só títulos em aberto: adicione no final AND (P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)) > 0
+-- Cada linha = um título. VALOR_PAGO = soma das baixas.
+-- Regra de negócio: se houver qualquer baixa (> 0,5 centavo), trata-se como
+-- liquidado totalmente → SALDO_ABERTO = 0 (não há pagamento parcial na regra).
 
 SELECT
     F.ID_FORNEC,
@@ -13,7 +14,10 @@ SELECT
     (P.DT_VENCTO - P.DT_EMISSAO) AS DIAS_PRAZO,
     P.VLR_CTAPAG AS VALOR_TITULO,
     COALESCE(B.VLR_PAGO_TOTAL, 0) AS VALOR_PAGO,
-    P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0) AS SALDO_ABERTO
+    CASE
+        WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0
+        ELSE P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)
+    END AS SALDO_ABERTO
 FROM TB_CONTA_PAGAR P
 INNER JOIN TB_FORNECEDOR F ON F.ID_FORNEC = P.ID_FORNEC
 LEFT JOIN (

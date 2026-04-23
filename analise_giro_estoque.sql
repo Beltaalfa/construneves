@@ -2,6 +2,7 @@
 -- Objetivo: dataset para Power BI com cobertura, giro, risco de ruptura e excesso.
 -- Observacao: se sua base tiver nomes de campos diferentes (ex.: QTD_ESTOQUE),
 -- ajuste somente no CTE PRODUTOS.
+-- CATEGORIA: descrição do grupo (TB_EST_GRUPO.DESCRICAO), igual a estoque_giro_fragment.sql.
 
 WITH
 PARAMS AS (
@@ -21,6 +22,7 @@ PRODUTOS AS (
         TRIM(COALESCE(E.DESCRICAO, '(sem descricao)')) AS ITEM,
         TRIM(COALESCE(P.REFERENCIA, '')) AS REFERENCIA,
         E.ID_GRUPO,
+        TRIM(COALESCE(GR.DESCRICAO, '(sem grupo)')) AS NOME_GRUPO,
         P.ID_NIVEL1,
         P.ID_NIVEL2,
         COALESCE(P.QTD_MINIM, 0) AS QTD_MINIMA,
@@ -28,6 +30,7 @@ PRODUTOS AS (
     FROM TB_EST_PRODUTO_2 P
     INNER JOIN TB_EST_IDENTIFICADOR_2 I ON I.ID_IDENTIFICADOR = P.ID_IDENTIFICADOR
     INNER JOIN TB_ESTOQUE_2 E ON E.ID_ESTOQUE = I.ID_ESTOQUE
+    LEFT JOIN TB_EST_GRUPO GR ON GR.ID_GRUPO = E.ID_GRUPO
 ),
 VENDAS AS (
     SELECT
@@ -62,6 +65,7 @@ BASE AS (
         P.ITEM,
         P.REFERENCIA,
         P.ID_GRUPO,
+        P.NOME_GRUPO,
         P.ID_NIVEL1,
         P.ID_NIVEL2,
         P.QTD_MINIMA,
@@ -75,9 +79,11 @@ BASE AS (
 )
 SELECT
     B.ID_IDENTIFICADOR,
+    CAST(B.ID_IDENTIFICADOR AS VARCHAR(50)) AS CODIGO_ITEM,
     B.ITEM,
     B.REFERENCIA,
     B.ID_GRUPO,
+    B.NOME_GRUPO AS CATEGORIA,
     B.ID_NIVEL1,
     B.ID_NIVEL2,
     B.QTD_ESTOQUE_ATUAL AS QUANT_ESTOQUE,

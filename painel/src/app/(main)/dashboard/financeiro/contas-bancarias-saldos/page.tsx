@@ -4,16 +4,19 @@ import { formatBRL, formatInt } from "@/lib/format";
 import { internalFetch } from "@/lib/internal-api";
 import Link from "next/link";
 
+type TotaisSaldos = {
+  qtd_contas?: number;
+  saldo_disponivel?: number;
+  saldo_talao_contabil?: number;
+  saldo_conciliado?: number;
+};
+
 type Payload = {
   data_referencia?: string;
   incluir_inativas?: boolean;
-  totais?: {
-    qtd_contas?: number;
-    saldo_disponivel?: number;
-    saldo_talao_contabil?: number;
-    saldo_conciliado?: number;
-  };
+  totais?: TotaisSaldos;
   rows?: Record<string, unknown>[];
+  cartoes_receber?: { totais?: TotaisSaldos; rows?: Record<string, unknown>[] };
 };
 
 type Props = { searchParams?: Promise<{ todas?: string }> };
@@ -36,18 +39,10 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
   }
 
   const t = payload.totais ?? {};
+  const tc = payload.cartoes_receber?.totais ?? {};
   const ref = payload.data_referencia ?? "";
 
-  const columns = [
-    "ID_CONTA",
-    "DESCRICAO",
-    "BANCO",
-    "AGENCIA",
-    "CONTA_CORRENTE",
-    "SALDO_DISPONIVEL",
-    "SALDO_TALAO_CONTABIL",
-    "DATA_ULTIMA_CONCILIACAO",
-  ];
+  const columns = ["DESCRICAO", "BANCO", "SALDO_DISPONIVEL"];
 
   return (
     <div className="space-y-8">
@@ -58,11 +53,10 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
           </h1>
           <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
             Posição na data de hoje ({ref || "—"}) conforme cadastro CLIPP (
-            <code className="text-zinc-500">TB_BANCO_CTA</code>): saldo
-            disponível (
-            <code className="text-zinc-500">SD_REAL</code>) e saldo em livro (
-            <code className="text-zinc-500">SD_TALAO</code>), com data da última
-            conciliação quando houver.
+            <code className="text-zinc-500">TB_BANCO_CTA</code>
+            ). A conta SIPAG (<code className="text-zinc-500">ID_CONTA=6</code>
+            ) aparece em &quot;Cartões a receber&quot;, fora do total e da tabela de
+            bancos.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs shrink-0">
@@ -97,28 +91,58 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
         </div>
       ) : null}
 
+      <h2 className="text-sm font-medium text-zinc-300">Bancos e caixas</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <KpiCard
-          label="Contas listadas"
+          label="Contas listadas (sem SIPAG)"
           value={formatInt(t.qtd_contas)}
           variant="default"
         />
         <KpiCard
-          label="Total saldo disponível"
+          label="Total saldo (SD_TALAO) — bancos"
           value={formatBRL(
             t.saldo_talao_contabil ?? t.saldo_disponivel,
           )}
-          hint="Total pela soma do saldo em livro (SD_TALAO) nas contas listadas."
+          hint="Soma do saldo em livro nas contas da tabela abaixo (SIPAG excluída)."
           variant="accent"
         />
       </div>
 
       <DynamicTable
-        title="Detalhe por conta"
+        title="Detalhe por conta (bancos e caixas)"
         rows={payload.rows ?? []}
         columns={columns}
-        maxHeightClass="max-h-[min(70vh,640px)]"
+        maxHeightClass="max-h-[min(50vh,480px)]"
         exportFileName={`contas-bancarias-saldos-${ref || "hoje"}`}
+      />
+
+      <h2 className="text-sm font-medium text-zinc-300 pt-2">
+        Cartões a receber
+      </h2>
+      <p className="text-xs text-zinc-500 max-w-2xl -mt-1">
+        Conta de adquirente (SIPAG); saldos <code className="text-zinc-600">SD_REAL</code> /{" "}
+        <code className="text-zinc-600">SD_TALAO</code> no mesmo critério do CLIPP.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <KpiCard
+          label="Conta(s) cartão"
+          value={formatInt(tc.qtd_contas ?? 0)}
+          variant="default"
+        />
+        <KpiCard
+          label="Total saldo (SD_TALAO) — cartões"
+          value={formatBRL(
+            tc.saldo_talao_contabil ?? tc.saldo_disponivel,
+          )}
+          variant="accent"
+        />
+      </div>
+      <DynamicTable
+        title="Detalhe (SIPAG / cartões a receber)"
+        rows={payload.cartoes_receber?.rows ?? []}
+        columns={columns}
+        maxHeightClass="max-h-[min(35vh,320px)]"
+        exportFileName={`contas-cartoes-receber-${ref || "hoje"}`}
       />
     </div>
   );

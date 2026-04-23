@@ -1,4 +1,5 @@
 -- Posição de saldos bancários/caixa na data corrente (TB_BANCO_CTA).
+-- Na API, ID_CONTA = 6 (SIPAG) é separada para o bloco “cartões a receber”.
 -- SALDO_DISPONIVEL: SD_REAL — saldo líquido / disponível conforme cadastro de movimentos.
 -- SALDO_CONCILIADO: SD_BANCO — saldo na última conciliação com extrato (quando informado).
 -- SALDO_TALAO_CONTABIL: SD_TALAO — saldo contábil / em livro (referência).

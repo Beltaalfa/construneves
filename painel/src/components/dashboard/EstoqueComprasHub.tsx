@@ -16,6 +16,10 @@ type GiroResumo = {
   chart_faixa_margem?: PieDatum[];
 };
 
+type GiroFiltroRow = {
+  ID_GRUPO?: number | null;
+};
+
 const TABS = [
   { id: "visao", label: "Visão geral" },
   { id: "cobertura", label: "Cobertura e ações" },
@@ -80,6 +84,12 @@ export function EstoqueComprasHub() {
   const [filterFaixaMargem, setFilterFaixaMargem] = useState<string | null>(null);
   const [filterSaldoNegativo, setFilterSaldoNegativo] = useState(false);
   const [filterSugestaoGtZero, setFilterSugestaoGtZero] = useState(false);
+  const [grupoOptions, setGrupoOptions] = useState<number[]>([]);
+  const [comprasGrupo, setComprasGrupo] = useState("");
+  const [comprasEstoqueDiasMin, setComprasEstoqueDiasMin] = useState("");
+  const [comprasEstoqueDiasMax, setComprasEstoqueDiasMax] = useState("");
+  const [comprasSaldoTipo, setComprasSaldoTipo] = useState("");
+  const [comprasStatusCobertura, setComprasStatusCobertura] = useState("");
 
   const giroExtra = useMemo(() => {
     const e: Record<string, string | boolean | undefined> = {};
@@ -141,6 +151,44 @@ export function EstoqueComprasHub() {
       cancel = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const r = await safeFetchJson<{ rows?: GiroFiltroRow[] }>(
+        "/api/dash/estoque/giro-filtros",
+      );
+      if (cancel || !r.ok) return;
+      const raw = Array.isArray(r.data.rows) ? r.data.rows : [];
+      const ids = raw
+        .map((x) => Number(x.ID_GRUPO))
+        .filter((n) => Number.isFinite(n))
+        .map((n) => Math.trunc(n));
+      setGrupoOptions(Array.from(new Set(ids)).sort((a, b) => a - b));
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  const comprasExtra = useMemo(() => {
+    const e: Record<string, string | number | boolean | undefined> = {
+      ...giroExtra,
+    };
+    if (comprasGrupo) e.id_grupo = comprasGrupo;
+    if (comprasStatusCobertura) e.status_cobertura = comprasStatusCobertura;
+    if (comprasSaldoTipo) e.saldo_tipo = comprasSaldoTipo;
+    if (comprasEstoqueDiasMin) e.estoque_dias_min = comprasEstoqueDiasMin;
+    if (comprasEstoqueDiasMax) e.estoque_dias_max = comprasEstoqueDiasMax;
+    return e;
+  }, [
+    giroExtra,
+    comprasGrupo,
+    comprasStatusCobertura,
+    comprasSaldoTipo,
+    comprasEstoqueDiasMin,
+    comprasEstoqueDiasMax,
+  ]);
 
   const k = giroResumo?.kpis ?? {};
 
@@ -412,27 +460,99 @@ export function EstoqueComprasHub() {
       ) : null}
 
       {tab === "compras" ? (
-        <PaginatedRemoteTable
-          title="Sugestão de compra e níveis"
-          path="estoque/giro-itens"
-          columns={[
-            "ITEM",
-            "REFERENCIA",
-            "ID_GRUPO",
-            "QUANT_ESTOQUE",
-            "VENDA_DIA_MEDIA",
-            "ESTOQUE_IDEAL",
-            "SUGESTAO_COMPRA_QTD",
-            "VALOR_ESTOQUE_ESTIMADO",
-            "CMV_ESTIMADO",
-            "STATUS_COBERTURA",
-          ]}
-          extraParams={giroExtra}
-          defaultSortCol="SUGESTAO_COMPRA_QTD"
-          defaultSortDir="DESC"
-          pageSize={25}
-          exportFileName="estoque-sugestao-compra"
-        />
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 rounded-xl border border-zinc-700/50 bg-zinc-900/30 p-3">
+            <label className="text-xs text-zinc-400 flex flex-col gap-1">
+              Grupo
+              <select
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200"
+                value={comprasGrupo}
+                onChange={(e) => setComprasGrupo(e.target.value)}
+              >
+                <option value="">Todos</option>
+                {grupoOptions.map((id) => (
+                  <option key={id} value={String(id)}>
+                    Grupo {id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-zinc-400 flex flex-col gap-1">
+              Dias em estoque (mín)
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={comprasEstoqueDiasMin}
+                onChange={(e) => setComprasEstoqueDiasMin(e.target.value)}
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200"
+                placeholder="Ex.: 0"
+              />
+            </label>
+            <label className="text-xs text-zinc-400 flex flex-col gap-1">
+              Dias em estoque (máx)
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={comprasEstoqueDiasMax}
+                onChange={(e) => setComprasEstoqueDiasMax(e.target.value)}
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200"
+                placeholder="Ex.: 90"
+              />
+            </label>
+            <label className="text-xs text-zinc-400 flex flex-col gap-1">
+              Saldo
+              <select
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200"
+                value={comprasSaldoTipo}
+                onChange={(e) => setComprasSaldoTipo(e.target.value)}
+              >
+                <option value="">Todos</option>
+                <option value="NEGATIVO">Negativo</option>
+                <option value="ZERO">Zerado</option>
+                <option value="POSITIVO">Positivo</option>
+              </select>
+            </label>
+            <label className="text-xs text-zinc-400 flex flex-col gap-1">
+              Status de cobertura
+              <select
+                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200"
+                value={comprasStatusCobertura}
+                onChange={(e) => setComprasStatusCobertura(e.target.value)}
+              >
+                <option value="">Todos</option>
+                <option value="CRITICO">Crítico</option>
+                <option value="ALERTA">Alerta</option>
+                <option value="ESTAVEL">Estável</option>
+                <option value="EXCESSO">Excesso</option>
+                <option value="SEM GIRO">Sem giro</option>
+              </select>
+            </label>
+          </div>
+          <PaginatedRemoteTable
+            title="Sugestão de compra e níveis"
+            path="estoque/giro-itens"
+            columns={[
+              "CODIGO_ITEM",
+              "ITEM",
+              "CATEGORIA",
+              "QUANT_ESTOQUE",
+              "VENDA_DIA_MEDIA",
+              "ESTOQUE_IDEAL",
+              "SUGESTAO_COMPRA_QTD",
+              "VALOR_ESTOQUE_ESTIMADO",
+              "CMV_ESTIMADO",
+              "STATUS_COBERTURA",
+              "ESTOQUE_EM_DIAS",
+            ]}
+            extraParams={comprasExtra}
+            defaultSortCol="SUGESTAO_COMPRA_QTD"
+            defaultSortDir="DESC"
+            pageSize={25}
+            exportFileName="estoque-sugestao-compra"
+          />
+        </div>
       ) : null}
 
       {tab === "margem" ? (

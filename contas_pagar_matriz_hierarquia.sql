@@ -1,5 +1,9 @@
--- Contas a pagar em aberto: grão título, hierarquia por data de vencimento
+-- Contas a pagar: grão título, hierarquia por data de vencimento
 -- (ano/mês → semana do mês 1–7, 8–14… → dia → fornecedor → documento).
+--
+-- Regra de negócio (Construneves): não há pagamento parcial — se existir
+-- qualquer valor baixado em TB_CTAPAG_BAIXA, o título é tratado como
+-- totalmente liquidado (SALDO_ABERTO = 0) e não entra nesta matriz de “em aberto”.
 
 SELECT
     CAST(EXTRACT(YEAR FROM P.DT_VENCTO) AS INTEGER) AS ANO,
@@ -17,10 +21,13 @@ SELECT
     P.ID_CTAPAG,
     TRIM(P.DOCUMENTO) AS DOCUMENTO,
     P.VLR_CTAPAG AS VALOR_TITULO,
-    P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0) AS SALDO_ABERTO,
     CASE
-        WHEN P.DT_VENCTO >= CURRENT_DATE
-        THEN P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)
+        WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0
+        ELSE P.VLR_CTAPAG
+    END AS SALDO_ABERTO,
+    CASE
+        WHEN COALESCE(B.VLR_PAGO_TOTAL, 0) > 0.005 THEN 0
+        WHEN P.DT_VENCTO >= CURRENT_DATE THEN P.VLR_CTAPAG
         ELSE 0
     END AS VALOR_A_VENCER,
     P.DT_VENCTO
@@ -31,5 +38,6 @@ LEFT JOIN (
     FROM TB_CTAPAG_BAIXA
     GROUP BY ID_CTAPAG
 ) B ON B.ID_CTAPAG = P.ID_CTAPAG
-WHERE (P.VLR_CTAPAG - COALESCE(B.VLR_PAGO_TOTAL, 0)) > 0
+WHERE P.VLR_CTAPAG > 0.005
+  AND COALESCE(B.VLR_PAGO_TOTAL, 0) <= 0.005
 ORDER BY P.DT_VENCTO, F.NOME, P.DOCUMENTO

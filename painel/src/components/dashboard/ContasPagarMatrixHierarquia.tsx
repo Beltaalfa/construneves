@@ -68,6 +68,15 @@ function worst(a: Urgency, b: Urgency): Urgency {
   return r[a] >= r[b] ? a : b;
 }
 
+/** Saldo “zero” na prática (arredondamento BRL / pó centavos). */
+function saldoEmAbertoMaterial(saldo: number): boolean {
+  return saldo > 0.005;
+}
+
+function statusSaldo(saldo: number): string {
+  return saldoEmAbertoMaterial(saldo) ? "Em aberto" : "Quitado";
+}
+
 function semanaLabel(sn: number): string {
   const m: Record<number, string> = {
     1: "Semana 1 (dias 1–7)",
@@ -286,7 +295,7 @@ function MatrixRow({
           {formatBRL(node.totals.av)}
         </td>
         <td className="py-2 px-2 text-xs text-zinc-500 whitespace-nowrap">
-          Em aberto
+          {statusSaldo(node.totals.saldo)}
         </td>
       </tr>
       {hasKids && open
