@@ -28,11 +28,10 @@ export default async function AmostraPage() {
       <div className="flex flex-wrap items-center gap-4 justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">
-            Tabelas (amostra)
+            Nomes técnicos (amostra)
           </h1>
-          <p className="text-sm text-zinc-400 mt-1">
-            Primeiras relações de usuário em{" "}
-            <code className="text-zinc-300">RDB$RELATIONS</code>.
+          <p className="text-sm text-zinc-400 mt-1 max-w-md">
+            Nomes de tabelas no banco (apoio técnico à estrutura de dados).
           </p>
         </div>
         <Link

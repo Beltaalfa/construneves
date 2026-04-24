@@ -191,8 +191,8 @@ export function PaginatedRemoteTable({
 
   return (
     <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/30 overflow-hidden flex flex-col">
-      <div className="px-4 py-3 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2">
-        <div>
+      <div className="px-4 py-3 border-b border-zinc-800 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h3 className="text-sm font-medium text-zinc-300">{title}</h3>
           {sortable && activeSort ? (
             <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -203,7 +203,7 @@ export function PaginatedRemoteTable({
             <p className="text-[11px] text-amber-400 mt-1">{exportErr}</p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
           {exportFileName && total > 0 ? (
             <Button
               type="button"
@@ -253,8 +253,8 @@ export function PaginatedRemoteTable({
           Nenhum registro
         </p>
       ) : (
-        <div className="overflow-x-auto max-h-[min(520px,70vh)]">
-          <table className="w-full text-xs sm:text-sm min-w-[640px]">
+        <div className="overflow-x-auto max-h-[min(520px,70vh)] overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch]">
+          <table className="w-full text-xs sm:text-sm min-w-[520px] sm:min-w-[640px]">
             <thead className="sticky top-0 bg-zinc-950/95 z-10 backdrop-blur-sm">
               <tr className="border-b border-zinc-700/50">
                 {columns.map((k) => {

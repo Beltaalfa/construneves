@@ -5,9 +5,33 @@ export default async function HomePage() {
   let health: { ok?: boolean; firebird?: boolean; error?: string } = {};
   try {
     const res = await internalFetch("/health");
-    health = await res.json();
-  } catch {
-    health = { ok: false, firebird: false, error: "API indisponível" };
+    const bodyText = await res.text();
+    if (!res.ok) {
+      health = {
+        ok: false,
+        firebird: false,
+        error: `A API Python respondeu HTTP ${res.status}. ${bodyText.slice(0, 240)}`,
+      };
+    } else {
+      try {
+        health = JSON.parse(bodyText) as typeof health;
+      } catch {
+        health = {
+          ok: false,
+          firebird: false,
+          error: "Resposta inválida de /health (não é JSON).",
+        };
+      }
+    }
+  } catch (e) {
+    const hint =
+      process.env.PAINEL_INTERNAL_API?.trim() || "http://127.0.0.1:8091";
+    const detail = e instanceof Error ? e.message : String(e);
+    health = {
+      ok: false,
+      firebird: false,
+      error: `Não foi possível ligar à painel-api em ${hint}. (${detail}) Confirme que o serviço está ativo (ex.: systemctl status construneves-painel-api) e que PAINEL_INTERNAL_API no .env aponta para o host/porta corretos.`,
+    };
   }
 
   const ok = health.firebird === true;
@@ -21,25 +45,25 @@ export default async function HomePage() {
       label: "Saldos em contas (hoje)",
     },
     { href: "/dashboard/estoque-e-compras", label: "Estoque e compras" },
+    { href: "/dashboard/estoque/pedidos-compra", label: "Pedidos de compra" },
+    { href: "/cobranca/apontamentos", label: "Apontamentos de cobrança" },
     { href: "/dashboard/vendas", label: "Vendas" },
-    { href: "/dashboard/precos/markup-validacao", label: "Validação MarkUP" },
+    { href: "/dashboard/precos/markup-validacao", label: "Conferir mark-up" },
   ];
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8 w-full min-w-0 max-w-full lg:max-w-4xl">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-100">
           Painel Construneves
         </h1>
-        <p className="text-zinc-400 mt-2">
-          Conexão CLIPP via Firebird (VPN). Dashboards a partir das queries em{" "}
-          <code className="text-zinc-500">/var/www/construneves/*.sql</code>,
-          visual dark alinhado ao guia Hub.
+        <p className="text-zinc-400 mt-2 text-sm max-w-xl">
+          Indicadores e relatórios a partir do seu sistema. A ligação ao banco depende da rede até ao servidor de dados.
         </p>
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 space-y-4">
-        <h2 className="text-sm font-medium text-zinc-400">Status Firebird</h2>
+        <h2 className="text-sm font-medium text-zinc-400">Ligação aos dados</h2>
         <p className="text-zinc-200">
           {ok ? (
             <span className="inline-flex rounded px-2 py-0.5 text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">

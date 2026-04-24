@@ -1,11 +1,12 @@
 [Unit]
-Description=Construneves — API Firebird (interna, 127.0.0.1:8091)
+Description=Construneves Painel API (FastAPI / uvicorn)
 After=network.target
 
 [Service]
 Type=simple
-User=tactical
-Group=tactical
+# Deve coincidir com o dono dos ficheiros em painel-api e .venv (ver comentário em construneves-painel.service)
+User=ubuntu
+Group=ubuntu
 WorkingDirectory=/var/www/construneves/painel-api
 EnvironmentFile=/var/www/construneves/.env
 ExecStart=/var/www/construneves/painel-api/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8091

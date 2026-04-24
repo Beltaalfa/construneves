@@ -43,6 +43,11 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
   const ref = payload.data_referencia ?? "";
 
   const columns = ["DESCRICAO", "BANCO", "SALDO_DISPONIVEL"];
+  const columnLabels: Record<string, string> = {
+    DESCRICAO: "Conta / descrição",
+    BANCO: "Banco",
+    SALDO_DISPONIVEL: "Saldo disponível",
+  };
 
   return (
     <div className="space-y-8">
@@ -52,11 +57,7 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
             Saldos em contas bancárias
           </h1>
           <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
-            Posição na data de hoje ({ref || "—"}) conforme cadastro CLIPP (
-            <code className="text-zinc-500">TB_BANCO_CTA</code>
-            ). A conta SIPAG (<code className="text-zinc-500">ID_CONTA=6</code>
-            ) aparece em &quot;Cartões a receber&quot;, fora do total e da tabela de
-            bancos.
+            Hoje ({ref || "—"}), cadastro de contas. SIPAG não entra no total de bancos — ver &quot;Cartões a receber&quot;.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs shrink-0">
@@ -99,11 +100,11 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
           variant="default"
         />
         <KpiCard
-          label="Total saldo (SD_TALAO) — bancos"
+          label="Total (saldo em livro) — bancos"
           value={formatBRL(
             t.saldo_talao_contabil ?? t.saldo_disponivel,
           )}
-          hint="Soma do saldo em livro nas contas da tabela abaixo (SIPAG excluída)."
+          hint="Soma do saldo em livro na lista abaixo (sem a SIPAG)."
           variant="accent"
         />
       </div>
@@ -112,6 +113,7 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
         title="Detalhe por conta (bancos e caixas)"
         rows={payload.rows ?? []}
         columns={columns}
+        columnLabels={columnLabels}
         maxHeightClass="max-h-[min(50vh,480px)]"
         exportFileName={`contas-bancarias-saldos-${ref || "hoje"}`}
       />
@@ -120,8 +122,8 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
         Cartões a receber
       </h2>
       <p className="text-xs text-zinc-500 max-w-2xl -mt-1">
-        Conta de adquirente (SIPAG); saldos <code className="text-zinc-600">SD_REAL</code> /{" "}
-        <code className="text-zinc-600">SD_TALAO</code> no mesmo critério do CLIPP.
+        Conta da adquirente (SIPAG). Mostra o saldo real e o saldo em livro, no mesmo
+        critério do sistema.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <KpiCard
@@ -130,7 +132,7 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
           variant="default"
         />
         <KpiCard
-          label="Total saldo (SD_TALAO) — cartões"
+          label="Total (saldo em livro) — cartões"
           value={formatBRL(
             tc.saldo_talao_contabil ?? tc.saldo_disponivel,
           )}
@@ -141,6 +143,7 @@ export default async function ContasBancariasSaldosPage({ searchParams }: Props)
         title="Detalhe (SIPAG / cartões a receber)"
         rows={payload.cartoes_receber?.rows ?? []}
         columns={columns}
+        columnLabels={columnLabels}
         maxHeightClass="max-h-[min(35vh,320px)]"
         exportFileName={`contas-cartoes-receber-${ref || "hoje"}`}
       />

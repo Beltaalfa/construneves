@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import type { NavAccess } from "@/lib/construneves-screens";
+import { navItemAllowed } from "@/lib/construneves-screens";
 import {
   IconLayoutDashboard,
   IconMenu2,
@@ -14,6 +16,10 @@ import {
   IconShoppingCart,
   IconTrendingUp,
   IconCalendarStats,
+  IconArrowsLeftRight,
+  IconClipboardList,
+  IconShieldLock,
+  IconBellRinging,
 } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -53,6 +59,16 @@ const estoqueItems = [
     label: "Giro e cobertura",
     icon: IconPackage,
   },
+  {
+    href: "/dashboard/reconciliacao-ger-fiscal",
+    label: "Conferir móvel e sistema",
+    icon: IconArrowsLeftRight,
+  },
+  {
+    href: "/dashboard/estoque/pedidos-compra",
+    label: "Pedidos de compra",
+    icon: IconClipboardList,
+  },
 ];
 
 const vendasItems = [
@@ -66,8 +82,26 @@ const vendasItems = [
 const precoItems = [
   {
     href: "/dashboard/precos/markup-validacao",
-    label: "Validação MarkUP",
+    label: "Conferir mark-up",
     icon: IconPercentage,
+  },
+];
+
+const sistemaItems = [
+  {
+    href: "/cobranca/apontamentos",
+    label: "Apont. cobrança",
+    icon: IconClipboardList,
+  },
+  {
+    href: "/notificacoes",
+    label: "Notificações",
+    icon: IconBellRinging,
+  },
+  {
+    href: "/permissoes",
+    label: "Permissões",
+    icon: IconShieldLock,
   },
 ];
 
@@ -134,58 +168,51 @@ function NavLink({
   );
 }
 
-export function Sidebar() {
+type NavItem = (typeof mainItems)[number];
+
+const sections: { title: string; items: NavItem[] }[] = [
+  { title: "Financeiro", items: financeItems as NavItem[] },
+  { title: "Estoque", items: estoqueItems as NavItem[] },
+  { title: "Vendas", items: vendasItems as NavItem[] },
+  { title: "Preços", items: precoItems as NavItem[] },
+  { title: "Sistema", items: sistemaItems as NavItem[] },
+];
+
+export function Sidebar({ navAccess }: { navAccess: NavAccess }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 
+  const visible = (items: NavItem[]) =>
+    items.filter((item) => navItemAllowed(navAccess, item.href));
+
+  const mainVisible = visible(mainItems);
+
   const nav = (
     <nav className="flex flex-col gap-4 p-3 pt-6 overflow-y-auto max-h-[calc(100vh-4rem)]">
-      <div className="flex flex-col gap-1">
-        {mainItems.map((item) => (
-          <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
-        ))}
-      </div>
-      <div>
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-          Financeiro
-        </p>
+      {mainVisible.length > 0 ? (
         <div className="flex flex-col gap-1">
-          {financeItems.map((item) => (
+          {mainVisible.map((item) => (
             <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
           ))}
         </div>
-      </div>
-      <div>
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-          Estoque
-        </p>
-        <div className="flex flex-col gap-1">
-          {estoqueItems.map((item) => (
-            <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-          Vendas
-        </p>
-        <div className="flex flex-col gap-1">
-          {vendasItems.map((item) => (
-            <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-          Preços
-        </p>
-        <div className="flex flex-col gap-1">
-          {precoItems.map((item) => (
-            <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
-          ))}
-        </div>
-      </div>
+      ) : null}
+      {sections.map(({ title, items }) => {
+        const links = visible(items);
+        if (links.length === 0) return null;
+        return (
+          <div key={title}>
+            <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+              {title}
+            </p>
+            <div className="flex flex-col gap-1">
+              {links.map((item) => (
+                <NavLink key={item.href} {...item} pathname={pathname} onNavigate={close} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </nav>
   );
 
@@ -193,7 +220,7 @@ export function Sidebar() {
     <>
       <button
         type="button"
-        className="lg:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200"
+        className="lg:hidden fixed z-50 p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200 top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))]"
         onClick={() => setOpen(true)}
         aria-label="Abrir menu"
       >
@@ -210,7 +237,7 @@ export function Sidebar() {
       ) : null}
 
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen w-64 max-w-[85vw] flex flex-col border-r border-zinc-800 bg-black transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-40 h-dvh min-h-screen w-64 max-w-[85vw] flex flex-col border-r border-zinc-800 bg-black pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-transform duration-200 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >

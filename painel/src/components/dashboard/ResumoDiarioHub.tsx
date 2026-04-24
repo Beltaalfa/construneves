@@ -32,12 +32,9 @@ type ResumoDiario = {
   totais_fluxo?: BlocoFluxo & { formula?: string };
 };
 
-/** % vs mês passado, com legenda do tipo de período (homólogo vs mês cal. fechado). */
-type MomKind = "dia" | "mtd" | "cal" | "fluxDia" | "fluxMtd";
-
+/** % vs mês passado e valor de referência (sem frase longa no rodapé do cartão). */
 function momPct(
   p: number | null | undefined,
-  kind: MomKind,
   refMesPassado?: number | null,
 ): string {
   const ref =
@@ -48,14 +45,7 @@ function momPct(
     return ref ? `n/d${ref}` : "n/d";
   }
   const sign = p > 0 ? "+" : "";
-  const leg: Record<MomKind, string> = {
-    dia: "mesmo dia, mês passado",
-    mtd: "até a mesma data, mês passado (MTD homólogo)",
-    cal: "valor mês cal. corrente; % e ref. vs 1.º → mesma data no mês passado (MTD homólogo)",
-    fluxDia: "fluxo, mesmo dia mês passado",
-    fluxMtd: "fluxo, MTD homólogo (1.º → mesma data, mês passado)",
-  };
-  return `${sign}${formatNumber(p, 2)}%${ref} · ${leg[kind]}`;
+  return `${sign}${formatNumber(p, 2)}%${ref}`;
 }
 
 export function ResumoDiarioHub() {
@@ -89,47 +79,31 @@ export function ResumoDiarioHub() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
+        <h1 className="text-3xl font-semibold text-zinc-100 tracking-tight">
           Resumo do dia
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Indicadores na data{" "}
-          <span className="text-zinc-300 font-medium">
+        <p className="text-base text-zinc-400 mt-2">
+          Data:{" "}
+          <span className="text-zinc-200 font-medium tabular-nums">
             {data?.data_referencia ?? "—"}
           </span>
-          : saldo bancário (cadastro), baixas de contas a pagar/receber e vendas
-          NF finalizadas. Fluxo líquido = recebimentos − pagamentos (sem vendas).
-          Comparativos: mesmo dia no mês anterior, ou MTD (1.º do mês até hoje vs 1.º
-          a mesma data no mês passado). No cartão “calendário — CLIPP” o valor
-          principal é o mês corrente completo; a % e o ref. usam essa mesma base
-          MTD homólogo do mês passado.
-          Quando aparece <span className="text-zinc-500">n/d</span>, a base de
-          comparação no mês passado é &lt; R$ 1 ou inexistente. No fluxo, se o
-          mês passado tiver sinal oposto ao atual, a % usa o valor absoluto do
-          mês passado no denominador (variação em relação à magnitude da saída
-          anterior).
         </p>
       </div>
 
       {err ? (
-        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-base">
           {err}
         </div>
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-zinc-300">Saldo bancário e cartões</h2>
-        <p className="text-[11px] text-zinc-500 -mt-1 max-w-2xl">
-          A conta SIPAG (adquirente,{" "}
-          <code className="text-zinc-500">ID_CONTA=6</code>) não entra no total de
-          bancos; aparece em cartões a receber.
-        </p>
+        <h2 className="text-base font-medium text-zinc-300">Saldo bancário e cartões</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl">
           <KpiCard
             label="Saldo disponível (bancos / caixa)"
             value={formatBRL(s?.disponivel)}
             variant="accent"
-            hint={`${formatInt(Number(s?.qtd_contas ?? 0))} contas (cadastro; exclusões e SIPAG na API)`}
+            hint={`${formatInt(Number(s?.qtd_contas ?? 0))} contas (SIPAG fora deste total)`}
           />
           <KpiCard
             label="Saldo cartões a receber (SIPAG)"
@@ -141,81 +115,39 @@ export function ResumoDiarioHub() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-zinc-300">
+        <h2 className="text-base font-medium text-zinc-300">
           Contas a pagar (baixas / pagamentos)
         </h2>
-        <p className="text-[11px] text-zinc-500 -mt-1">
-          <span className="text-zinc-400">Pago hoje</span> e comparativo do mesmo dia
-          no mês anterior: só{" "}
-          <code className="text-zinc-500">TIP_PAGTO = &apos;T&apos;</code>, como
-          «Pagas» no Resumo do dia no CLIPP. Totais do mês (até hoje, calendário e %
-          MTD):{" "}
-          <code className="text-zinc-500">TIP_PAGTO IN (&apos;T&apos;,&apos;P&apos;)</code>
-          , como a barra «Pagas» no Resumo do Mês. O cartão calendário soma o mês
-          corrente (incl. datas futuras); % e ref. comparam com 1.º a mesma data do
-          mês passado.
-        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Pago hoje"
             value={formatBRL(p?.hoje)}
-            hint={momPct(p?.pct_mom_hoje, "dia", p?.hoje_mes_passado)}
+            hint={momPct(p?.pct_mom_hoje, p?.hoje_mes_passado)}
           />
           <KpiCard
-            label="Pago no mês (até hoje)"
-            value={formatBRL(p?.mtd)}
-            hint={momPct(p?.pct_mom_mtd, "mtd", p?.mtd_mes_passado)}
-          />
-          <KpiCard
-            label="Pago no mês (calendário — CLIPP)"
+            label="Pago no mês (calendário completo)"
             value={formatBRL(p?.mes_calendario)}
-            hint={momPct(
-              p?.pct_mom_mes_calendario,
-              "cal",
-              p?.mes_calendario_mes_passado,
-            )}
+            hint={momPct(p?.pct_mom_mes_calendario, p?.mes_calendario_mes_passado)}
           />
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-zinc-300">
+        <h2 className="text-base font-medium text-zinc-300">
           Contas a receber (baixas / recebimentos)
         </h2>
-        <p className="text-[11px] text-zinc-500 -mt-1">
-          Soma de <code className="text-zinc-500">VLR_RECEB</code> por{" "}
-          <code className="text-zinc-500">DT_BAIXA</code> (uma linha por baixa). O{" "}
-          <span className="text-zinc-400">ref.</span> na variação % é esse total no
-          período homólogo (mesmo dia ou MTD).{" "}
-          <span className="text-zinc-400">
-            Não confundir com o rodapé “Vlr. Recebido” de um HTML/relatório de
-            posição de títulos
-          </span>
-          : lá costuma ser a soma do valor já recebido <em>em cada título</em> em
-          todas as linhas (acumulado por título), não a soma das baixas só no
-          intervalo de datas do comparativo. No cartão calendário, o ref. do % é o
-          mesmo critério do cartão “até hoje” (ex.: 01/03–23/03 se hoje for
-          23/04).
-        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Recebido hoje"
             value={formatBRL(rec?.hoje)}
-            hint={momPct(rec?.pct_mom_hoje, "dia", rec?.hoje_mes_passado)}
+            hint={momPct(rec?.pct_mom_hoje, rec?.hoje_mes_passado)}
             variant="accent"
           />
           <KpiCard
-            label="Recebido no mês (até hoje)"
-            value={formatBRL(rec?.mtd)}
-            hint={momPct(rec?.pct_mom_mtd, "mtd", rec?.mtd_mes_passado)}
-            variant="accent"
-          />
-          <KpiCard
-            label="Recebido no mês (calendário — CLIPP)"
+            label="Recebido no mês (calendário completo)"
             value={formatBRL(rec?.mes_calendario)}
             hint={momPct(
               rec?.pct_mom_mes_calendario,
-              "cal",
               rec?.mes_calendario_mes_passado,
             )}
             variant="accent"
@@ -224,34 +156,18 @@ export function ResumoDiarioHub() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-zinc-300">Vendas (NF finalizada)</h2>
-        <p className="text-[11px] text-zinc-500 -mt-1">
-          Por <code className="text-zinc-500">DT_SAIDA</code>: soma dos{" "}
-          <code className="text-zinc-500">VLR_PAGTO</code> em{" "}
-          <code className="text-zinc-500">V_NFVENDA_PAGAMENTOS</code> por NF, ou
-          se a NF não tiver linhas nessa view, o total{" "}
-          <code className="text-zinc-500">VLR_TOTALNOTAJUROS</code> da nota. O
-          cartão <span className="text-zinc-400">mês calendário</span> cobre o mês
-          corrente (incl. NF com saída futura); a % e o ref. usam o MTD homólogo do
-          mês passado, como no cartão “até hoje”.
-        </p>
+        <h2 className="text-base font-medium text-zinc-300">Vendas (NF finalizada)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Vendas hoje"
             value={formatBRL(v?.hoje)}
-            hint={momPct(v?.pct_mom_hoje, "dia", v?.hoje_mes_passado)}
+            hint={momPct(v?.pct_mom_hoje, v?.hoje_mes_passado)}
           />
           <KpiCard
-            label="Vendas no mês (até hoje)"
-            value={formatBRL(v?.mtd)}
-            hint={momPct(v?.pct_mom_mtd, "mtd", v?.mtd_mes_passado)}
-          />
-          <KpiCard
-            label="Vendas no mês (calendário — CLIPP)"
+            label="Vendas no mês (calendário completo)"
             value={formatBRL(v?.mes_calendario)}
             hint={momPct(
               v?.pct_mom_mes_calendario,
-              "cal",
               v?.mes_calendario_mes_passado,
             )}
           />
@@ -259,22 +175,18 @@ export function ResumoDiarioHub() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-medium text-zinc-300">Total fluxo</h2>
-        <p className="text-xs text-zinc-500 max-w-2xl">
-          {t?.formula ??
-            "recebimentos (baixas a receber) − pagamentos (dia e MTD), sem vendas."}
-        </p>
+        <h2 className="text-base font-medium text-zinc-300">Total fluxo</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Fluxo líquido hoje"
             value={formatBRL(t?.hoje)}
-            hint={momPct(t?.pct_mom_hoje, "fluxDia", t?.hoje_mes_passado)}
+            hint={momPct(t?.pct_mom_hoje, t?.hoje_mes_passado)}
             variant="warn"
           />
           <KpiCard
             label="Fluxo líquido no mês (até hoje)"
             value={formatBRL(t?.mtd)}
-            hint={momPct(t?.pct_mom_mtd, "fluxMtd", t?.mtd_mes_passado)}
+            hint={momPct(t?.pct_mom_mtd, t?.mtd_mes_passado)}
             variant="warn"
           />
         </div>

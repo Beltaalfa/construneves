@@ -237,15 +237,12 @@ export function VendasHub() {
         <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
           Vendas
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          NF de saída finalizada (<code className="text-zinc-500">FIM = Finalizado</code>
-          ), data de <code className="text-zinc-500">DT_SAIDA</code>. Valores por
-          linha de item; forma de pagamento via{" "}
-          <code className="text-zinc-500">V_NFVENDA_PAGAMENTOS</code>.
+        <p className="text-sm text-zinc-400 mt-1 max-w-xl">
+          NFs finalizadas por data de saída. Totais por item; formas de pagamento no faturamento da NF.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-4 items-end rounded-xl border border-zinc-700/50 bg-zinc-900/20 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end rounded-xl border border-zinc-700/50 bg-zinc-900/20 p-4">
         <label className="flex flex-col gap-1 text-xs text-zinc-400">
           Ano
           <select
@@ -277,7 +274,7 @@ export function VendasHub() {
         </label>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-3">
+      <div className="flex gap-2 border-b border-zinc-800 pb-3 overflow-x-auto overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] -mx-1 px-1">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -285,8 +282,8 @@ export function VendasHub() {
             onClick={() => setTab(t.id)}
             className={
               tab === t.id
-                ? "px-3 py-1.5 rounded-lg text-sm font-medium bg-zinc-800 text-white"
-                : "px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                ? "shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium bg-zinc-800 text-white"
+                : "shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
             }
           >
             {t.label}

@@ -3,11 +3,11 @@
 -- Resumo do dia no CLIPP («Pagas»): só TIP_PAGTO = 'T' → PAGAR_HOJE / PAGAR_DIA_MES_ANT.
 -- Resumo do Mês («Pagas»): TIP_PAGTO IN ('T','P') no mês calendário → PAGAR_MES_CAL;
 -- o mesmo IN para PAGAR_MTD / PAGAR_MTD_MES_ANT (totais do mês em curso / homólogo).
--- Baixas a receber: TB_CTAREC_BAIXA (recebido).
+-- Baixas a receber: TB_CTAREC_BAIXA + TB_CONTA_RECEBER (sufixo _2 opcional via API).
 -- Recebimentos: soma VLR_RECEB por data da baixa (DT_BAIXA), com join ao título.
 -- RECEBER_MTD: do dia 1 até CURRENT_DATE (acompanhamento real).
 -- RECEBER_MES_CAL: do dia 1 ao último dia do mês corrente (inclui baixas já lançadas
--- com DT_BAIXA futura no mês) — alinha ao “Resumo do Mês / Recebidas” do CLIPP.
+-- com DT_BAIXA futura no mês) — alinha ao resumo de recebidas no sistema.
 -- Vendas: NF finalizada (FIM) por DT_SAIDA. Por NF: soma de VLR_PAGTO em
 -- V_NFVENDA_PAGAMENTOS quando houver linhas; senão TB_NFVENDA_2.VLR_TOTALNOTAJUROS
 -- (há bases em que a view de pagamentos não liga a todas as NFs e o INNER JOIN

@@ -48,18 +48,17 @@ export default async function ContasReceberDashboardPage() {
         className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_90%_60%_at_50%_-30%,rgba(34,211,238,0.08),transparent_55%)] opacity-90"
       />
 
-      <header className="relative overflow-hidden rounded-2xl border border-zinc-700/50 bg-gradient-to-br from-zinc-900/90 via-zinc-950 to-zinc-950 px-6 py-8 sm:px-8 shadow-xl shadow-black/25">
+      <header className="relative overflow-hidden rounded-2xl border border-zinc-700/50 bg-gradient-to-br from-zinc-900/90 via-zinc-950 to-zinc-950 px-4 py-6 sm:px-8 sm:py-8 shadow-xl shadow-black/25">
         <div className="absolute inset-0 bg-[linear-gradient(105deg,transparent_40%,rgba(6,182,212,0.06)_50%,transparent_60%)]" />
-        <div className="relative max-w-3xl space-y-3">
+        <div className="relative max-w-3xl space-y-3 min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-400/90">
             Financeiro
           </p>
-          <h1 className="text-3xl font-semibold text-zinc-50 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-zinc-50 tracking-tight">
             Contas a receber
           </h1>
-          <p className="text-sm text-zinc-400 leading-relaxed">
-            Visão da carteira em aberto: KPIs, envelhecimento, tendências mensais,
-            clientes com drill-down nos títulos e conciliação por mês.
+          <p className="text-sm text-zinc-400 leading-relaxed max-w-full sm:max-w-xl">
+            Totais, atraso, tendência, clientes/títulos e fluxo. Por omissão só entram clientes com NF de saída MT finalizada (<span className="font-mono text-xs text-zinc-500">TB_NFVENDA_2</span>).
           </p>
         </div>
       </header>
@@ -73,7 +72,7 @@ export default async function ContasReceberDashboardPage() {
       <DashboardSection
         eyebrow="Carteira"
         title="Indicadores principais"
-        description="Totais consolidados na data de hoje. Saldo atrasado acima de 30 e 60 dias considera apenas títulos vencidos além desses limites."
+        description="Totais de hoje. Atraso 30+/60+: só títulos com vencimento além desses prazos."
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
@@ -111,12 +110,12 @@ export default async function ContasReceberDashboardPage() {
       <DashboardSection
         eyebrow="Envelhecimento"
         title="Tempo de atraso"
-        description="Distribuição do saldo em aberto por faixa de dias em relação ao vencimento. Cores seguem severidade (a vencer → crítico)."
+        description="Saldo em aberto por faixa de dias de atraso (cores = gravidade)."
       >
         <DashboardBarChart
           data={payload.chart_tempo_atraso ?? []}
           title="Saldo por faixa"
-          subtitle="Barras horizontais; valores em reais no eixo."
+          subtitle="Valores em R$."
           valueFormat="brl"
           chartHeight={360}
           barPalette="semantic"
@@ -127,7 +126,7 @@ export default async function ContasReceberDashboardPage() {
       <DashboardSection
         eyebrow="Tendência"
         title="Indicadores mensais"
-        description="Três séries alinhadas lado a lado em telas largas: valores em área com gradiente para leitura mais fluida que barras isoladas."
+        description="Inadimplência, PMR e valores por mês."
       >
         <ContasReceberIndicadoresMesCharts
           data={payload.indicadores_mes ?? []}
@@ -137,7 +136,7 @@ export default async function ContasReceberDashboardPage() {
       <DashboardSection
         eyebrow="Operacional"
         title="Clientes e títulos"
-        description="Resumo por cliente com expansão do analítico e paginação. Role horizontalmente se houver muitas colunas."
+        description="Por cliente; expanda a linha para ver títulos. Tabela com scroll horizontal."
       >
         <ContasReceberClientesTitulos
           clientes={payload.por_cliente ?? []}
@@ -146,9 +145,9 @@ export default async function ContasReceberDashboardPage() {
       </DashboardSection>
 
       <DashboardSection
-        eyebrow="Conciliação"
-        title="Fluxo mensal"
-        description="Vendas (emissão), recebidos (data da baixa) e pendentes por mês de vencimento — ano atual e anterior."
+        eyebrow="Fechamento"
+        title="Fluxo mês a mês"
+        description="Vendas, recebimentos e pendente por mês (ano atual e anterior)."
       >
         <ReceberMonthlyTables
           vendas={payload.mes_vendas ?? []}

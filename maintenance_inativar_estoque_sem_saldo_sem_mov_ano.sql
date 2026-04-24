@@ -1,0 +1,37 @@
+-- Inativa (STATUS = I) itens de TB_ESTOQUE_2 que estão ativos, com saldo zero
+-- em TB_EST_PRODUTO_2, e sem nota de venda nem de compra no ano civil corrente.
+-- Tabelas: módulo MT (*_2). Ajuste o ano trocando CURRENT_DATE por constantes se precisar.
+-- Executar fora de horário de pico; conferir o SELECT de contagem antes.
+
+UPDATE TB_ESTOQUE_2 E2
+SET E2.STATUS = 'I'
+WHERE TRIM(COALESCE(E2.STATUS, 'A')) = 'A'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM TB_EST_IDENTIFICADOR_2 I2
+    INNER JOIN TB_EST_PRODUTO_2 P ON P.ID_IDENTIFICADOR = I2.ID_IDENTIFICADOR
+    WHERE I2.ID_ESTOQUE = E2.ID_ESTOQUE
+    AND (
+      COALESCE(P.QTD_ATUAL, 0) <> 0
+      OR EXISTS (
+        SELECT 1
+        FROM TB_NFV_ITEM_2 IT
+        INNER JOIN TB_NFVENDA_2 N ON N.ID_NFVENDA = IT.ID_NFVENDA
+        WHERE IT.ID_IDENTIFICADOR = I2.ID_IDENTIFICADOR
+          AND N.FIM = 'Finalizado'
+          AND CAST(N.DT_SAIDA AS DATE) >= CAST(EXTRACT(YEAR FROM CURRENT_DATE) || '-01-01' AS DATE)
+          AND CAST(N.DT_SAIDA AS DATE) < CAST((EXTRACT(YEAR FROM CURRENT_DATE) + 1) || '-01-01' AS DATE)
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM TB_NFC_ITEM_2 IT
+        INNER JOIN TB_NFCOMPRA_2 N ON N.ID_NFCOMPRA = IT.ID_NFCOMPRA
+        WHERE IT.ID_IDENTIFICADOR = I2.ID_IDENTIFICADOR
+          AND COALESCE(N.STATUS, 'E') <> 'C'
+          AND COALESCE(CAST(N.DT_ENTRADA AS DATE), CAST(N.DT_EMISSAO AS DATE)) >=
+              CAST(EXTRACT(YEAR FROM CURRENT_DATE) || '-01-01' AS DATE)
+          AND COALESCE(CAST(N.DT_ENTRADA AS DATE), CAST(N.DT_EMISSAO AS DATE)) <
+              CAST((EXTRACT(YEAR FROM CURRENT_DATE) + 1) || '-01-01' AS DATE)
+      )
+    )
+  );

@@ -31,7 +31,7 @@ export function KpiCard({
 }: Props) {
   const interactive = Boolean(onClick);
   const base =
-    `rounded-2xl border p-4 min-h-[5.5rem] flex flex-col justify-center transition-all duration-200 ${ring[variant]} ` +
+    `rounded-2xl border p-5 min-h-[6rem] flex flex-col justify-center transition-all duration-200 ${ring[variant]} ` +
     (!interactive ? "hover:border-zinc-600/50 hover:shadow-lg hover:shadow-black/15 " : "") +
     (interactive
       ? "text-left w-full cursor-pointer transition-colors hover:bg-zinc-800/40 hover:border-zinc-600/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 "
@@ -40,13 +40,13 @@ export function KpiCard({
 
   const inner = (
     <>
-      <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.14em]">
+      <p className="text-sm font-semibold text-zinc-500 uppercase tracking-[0.12em]">
         {label}
       </p>
-      <p className="text-lg sm:text-xl font-semibold text-zinc-50 mt-2 tabular-nums tracking-tight">
+      <p className="text-2xl sm:text-3xl font-semibold text-zinc-50 mt-2 tabular-nums tracking-tight">
         {value}
       </p>
-      {hint ? <p className="text-[11px] text-zinc-500 mt-1">{hint}</p> : null}
+      {hint ? <p className="text-sm text-zinc-500 mt-1.5 leading-snug">{hint}</p> : null}
     </>
   );
 

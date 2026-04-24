@@ -1,4 +1,4 @@
--- Analítico: título a título por cliente + prazo médio de recebimento do cliente
+-- Analítico: título a título por cliente + prazo médio de recebimento (sufixo _2 opcional via API).
 -- Cada linha = um título em aberto. PRAZO_MEDIO = média dos prazos (emissão → vencimento) do cliente.
 
 SELECT

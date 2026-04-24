@@ -1,6 +1,7 @@
 "use client";
 
 import { agingBarColor, VIZ } from "@/lib/dashboard-viz-theme";
+import { useSyncExternalStore } from "react";
 import {
   Bar,
   BarChart,
@@ -13,6 +14,21 @@ import {
 } from "recharts";
 
 type Row = { name: string; valor: number };
+
+function useNarrowChart(): boolean {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined") return () => {};
+      const mq = window.matchMedia("(max-width: 640px)");
+      mq.addEventListener("change", onStoreChange);
+      return () => mq.removeEventListener("change", onStoreChange);
+    },
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 640px)").matches,
+    () => false,
+  );
+}
 
 function brl(v: number) {
   return v.toLocaleString("pt-BR", {
@@ -40,6 +56,7 @@ export function DashboardBarChart({
   barPalette?: "semantic" | "uniform";
   tooltipValueLabel?: string;
 }) {
+  const narrow = useNarrowChart();
   const fmt =
     valueFormat === "brl"
       ? brl
@@ -68,7 +85,11 @@ export function DashboardBarChart({
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 4, right: 20, left: 4, bottom: 4 }}
+            margin={
+              narrow
+                ? { top: 4, right: 8, left: 0, bottom: 4 }
+                : { top: 4, right: 20, left: 4, bottom: 4 }
+            }
             barCategoryGap={10}
           >
             <CartesianGrid
@@ -86,8 +107,8 @@ export function DashboardBarChart({
             <YAxis
               type="category"
               dataKey="name"
-              width={128}
-              tick={{ fill: VIZ.axis, fontSize: 11 }}
+              width={narrow ? 88 : 128}
+              tick={{ fill: VIZ.axis, fontSize: narrow ? 10 : 11 }}
               tickLine={false}
               axisLine={false}
             />

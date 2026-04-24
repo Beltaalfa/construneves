@@ -35,3 +35,4 @@ Thumbs.db
 
 # Amostras exportadas (podem ser grandes ou sensíveis)
 cr_*.csv
+data/estoque_alerta_negativo_state.json

@@ -34,10 +34,8 @@ export default async function ContasPagarDashboardPage() {
         <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
           Contas a pagar
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Resumo em aberto + analítico (
-          <code className="text-zinc-500">contas_a_pagar_analitico.sql</code>
-          ).
+        <p className="text-sm text-zinc-400 mt-1 max-w-md">
+          Títulos em aberto, evolução mensal e detalhe por fornecedor.
         </p>
       </div>
 

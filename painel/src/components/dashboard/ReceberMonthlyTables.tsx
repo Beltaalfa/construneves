@@ -199,19 +199,19 @@ export function ReceberMonthlyTables({
       <MesTable
         title="Contas a receber — Vendas"
         rows={vendas}
-        valueLabel="Soma de VLR_CTAREC por mês de emissão, apenas títulos em aberto."
+        valueLabel="Soma do valor a receber, mês a mês, pela data de emissão (só títulos ainda abertos)."
         variant="vendas"
       />
       <MesTable
         title="Contas a receber — Recebidos"
         rows={recebidos}
-        valueLabel="Soma de VLR_RECEB por mês da data da baixa (TB_CTAREC_BAIXA)."
+        valueLabel="Soma do que entrou, mês a mês, na data em que o título foi dado como recebido."
         variant="recebidos"
       />
       <MesTable
         title="Contas a receber — Pendentes"
         rows={pendentes}
-        valueLabel="Soma de VLR_RESTANTE por mês de vencimento, carteira em aberto."
+        valueLabel="Soma do que ainda falta receber, mês a mês, pela data de vencimento (carteira aberta)."
         variant="pendentes"
       />
     </div>

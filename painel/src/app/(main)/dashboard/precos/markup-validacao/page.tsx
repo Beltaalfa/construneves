@@ -23,20 +23,14 @@ export default async function MarkupValidacaoPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
-          Validação de MarkUP
+          Conferir mark-up
         </h1>
-        <p className="text-sm text-zinc-400 mt-1 max-w-3xl">
-          Compara o <strong className="text-zinc-300">MARGEM_LB</strong> cadastrado em{" "}
-          <code className="text-zinc-500">TB_ESTOQUE_2</code> com o markup calculado a partir
-          de <code className="text-zinc-500">PRC_CUSTO</code> e{" "}
-          <code className="text-zinc-500">PRC_VENDA</code>. Tolerância:{" "}
-          <strong className="text-zinc-300">0,05 p.p.</strong> — consulta:{" "}
-          <code className="text-zinc-500">validacao_markup_produtos.sql</code>.
+        <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
+          Mark-up do cadastro vs. recalculado (custo e venda). Tolerância ok até{" "}
+          <strong className="text-zinc-300">0,05 p.p.</strong>
         </p>
         <p className="text-xs text-zinc-500 mt-2">
-          Lista completa carregada no painel ({rows.length.toLocaleString("pt-BR")} itens). Use os
-          KPIs como filtro rápido, busca por palavras na descrição e ordene clicando nos cabeçalhos.
-          Margem bruta % = ((Venda − Custo) / Venda) × 100.
+          {rows.length.toLocaleString("pt-BR")} itens. Filtros e ordenação nas colunas. Margem bruta %: (Venda − Custo) ÷ Venda × 100.
         </p>
       </div>
 

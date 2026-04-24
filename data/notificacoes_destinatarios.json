@@ -1,0 +1,22 @@
+{
+  "recipients": [
+    {
+      "phone": "5537996704090",
+      "label": "Gabriel"
+    },
+    {
+      "phone": "5534999199782",
+      "label": "Ana"
+    }
+  ],
+  "recipientsCobranca": [
+    {
+      "phone": "5534988070651",
+      "label": "Ana"
+    },
+    {
+      "phone": "5537996704090",
+      "label": "Gabriel"
+    }
+  ]
+}

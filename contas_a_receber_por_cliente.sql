@@ -1,4 +1,4 @@
--- Contas a receber por cliente (CLIPP - TB_CONTA_RECEBER + TB_CLIENTE)
+-- Contas a receber por cliente (TB_CONTA_RECEBER + TB_CLIENTE; sufixo _2 opcional via API)
 -- Saldo em aberto (VLR_RESTANTE), títulos não cancelados.
 -- Prazo médio emissão→vencimento e PMR vencimento→última baixa (quando existir).
 -- LIBERADO / LIMITE_CREDITO: placeholders NULL — mapeie colunas reais de TB_CLIENTE se existirem.

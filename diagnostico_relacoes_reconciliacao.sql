@@ -1,0 +1,15 @@
+-- Tabelas candidatas a cruzar movimento gerencial (MT/CLIPP) vs fiscal (NF).
+-- Base real (CLIPP / Firebird) — mapeamento usado no painel:
+--   Sufixo _2 = módulo MT; sem sufixo = CLIPP.
+--   Compras: MT = TB_NFCOMPRA_2 + TB_NFC_ITEM_2; CLIPP = TB_NFCOMPRA + TB_NFC_ITEM.
+--   Vendas:  MT = TB_NFVENDA_2 + TB_NFV_ITEM_2 (FIM=Finalizado); CLIPP = TB_NFVENDA + TB_NFV_ITEM (STATUS=E).
+SELECT TRIM(RF.RDB$RELATION_NAME) AS TABELA
+FROM RDB$RELATIONS RF
+WHERE RF.RDB$SYSTEM_FLAG = 0
+  AND RF.RDB$VIEW_BLR IS NULL
+  AND (
+    UPPER(TRIM(RF.RDB$RELATION_NAME)) CONTAINING 'PED_COMPRA_ORDEM'
+    OR UPPER(TRIM(RF.RDB$RELATION_NAME)) = 'TB_PED_VENDA_ITEM'
+    OR UPPER(TRIM(RF.RDB$RELATION_NAME)) = 'TB_PEDIDO_VENDA'
+  )
+ORDER BY 1;

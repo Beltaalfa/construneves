@@ -4,12 +4,20 @@ e consultas resumo inline (apenas SELECT).
 """
 from __future__ import annotations
 
+import calendar
+import os
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
+
+from receber_tables import (
+    apply_receber_nf_mt_client_filter_sql as _receber_nf_mt_filter,
+    apply_receber_suffix as _receber_sql,
+    receber_sql_and_cliente_com_nf_mt as _receber_nf_mt,
+)
 
 REPO_SQL = Path("/var/www/construneves")
 
@@ -70,6 +78,13 @@ def wire(rows_fn: Callable, conn_cm: Callable) -> None:
     global _rows_to_dicts, _firebird_connection
     _rows_to_dicts = rows_fn
     _firebird_connection = conn_cm
+
+
+def firebird_conn_context():
+    """Context manager Firebird (transacções com commit explícito). Só após `wire()`."""
+    if _firebird_connection is None:
+        raise RuntimeError("dashboard.wire não foi chamado")
+    return _firebird_connection()
 
 
 def _load_sql(filename: str) -> str:
@@ -412,6 +427,7 @@ def dash_contas_a_pagar():
 
 
 def _contas_receber_where_aberto() -> str:
+    """Títulos em aberto. Sufixo _2 só com CONSTRUNEVES_RECEBER_TABELA_SUFFIX=_2 no .env."""
     return (
         "(R.CANC IS NULL OR TRIM(R.CANC) = '' OR R.CANC = 'N') AND R.VLR_RESTANTE > 0"
     )
@@ -461,7 +477,7 @@ def _merge_indicadores_mes(
 
 @router.get("/contas-a-receber")
 def dash_contas_a_receber():
-    w = _contas_receber_where_aberto()
+    w = _contas_receber_where_aberto() + _receber_nf_mt("R.ID_CLIENTE")
     summary_sql = f"""
     SELECT
       COUNT(*) AS QTD_TITULOS,
@@ -569,8 +585,8 @@ def dash_contas_a_receber():
     ORDER BY 1, 2
     """
     try:
-        kpis = _one_row(summary_sql)
-        aging = _one_row(aging_sql)
+        kpis = _one_row(_receber_sql(summary_sql))
+        aging = _one_row(_receber_sql(aging_sql))
         chart_atraso = [
             {"name": "A vencer", "valor": round(float(aging.get("B_A_VENCER") or 0), 2)},
             {"name": "1 a 7 dias", "valor": round(float(aging.get("B_1_7") or 0), 2)},
@@ -580,14 +596,18 @@ def dash_contas_a_receber():
             {"name": "61 a 90 dias", "valor": round(float(aging.get("B_61_90") or 0), 2)},
             {"name": "Acima de 90 dias", "valor": round(float(aging.get("B_ACIMA_90") or 0), 2)},
         ]
-        por_cliente = _load_sql("contas_a_receber_por_cliente.sql")
+        por_cliente = _receber_sql(
+            _receber_nf_mt_filter(_load_sql("contas_a_receber_por_cliente.sql")),
+        )
         _, rows_pc = _execute(por_cliente, max_rows=None)
-        _, mes_vendas = _execute(sql_mes_vendas, max_rows=None)
-        _, mes_recebidos = _execute(sql_mes_recebidos, max_rows=None)
-        _, mes_pendentes = _execute(sql_mes_pendentes, max_rows=None)
-        _, rows_v30 = _execute(sql_ind_v30_mes, max_rows=None)
-        _, rows_pmr_baixa = _execute(sql_pmr_emissao_baixa_mes, max_rows=None)
-        analitico = _load_sql("contas_receber_analitico_prazo_medio.sql")
+        _, mes_vendas = _execute(_receber_sql(sql_mes_vendas), max_rows=None)
+        _, mes_recebidos = _execute(_receber_sql(sql_mes_recebidos), max_rows=None)
+        _, mes_pendentes = _execute(_receber_sql(sql_mes_pendentes), max_rows=None)
+        _, rows_v30 = _execute(_receber_sql(sql_ind_v30_mes), max_rows=None)
+        _, rows_pmr_baixa = _execute(_receber_sql(sql_pmr_emissao_baixa_mes), max_rows=None)
+        analitico = _receber_sql(
+            _receber_nf_mt_filter(_load_sql("contas_receber_analitico_prazo_medio.sql")),
+        )
         _, rows_det = _execute(analitico, max_rows=None)
         indicadores_mes = _merge_indicadores_mes(rows_v30, rows_pmr_baixa)
         return {
@@ -652,6 +672,58 @@ def dash_estoque_giro_filtros():
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.get("/estoque/pedidos-compra")
+def dash_estoque_pedidos_compra():
+    """Itens de pedido de compra (ordens não finalizadas nem canceladas)."""
+    try:
+        _, rows = _execute(_load_sql("ped_compra_aberto_lista.sql"), max_rows=None)
+        k = _one_row(_load_sql("ped_compra_aberto_kpis.sql"))
+        n_lin = int(k.get("QTD_ITENS") or 0)
+        n_ord = int(k.get("QTD_ORDENS") or 0)
+        return {
+            "count": n_lin,
+            "ordens_abertas": n_ord,
+            "rows": rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.delete("/estoque/pedidos-compra/item")
+def dash_estoque_pedidos_compra_delete(
+    id_ped_compra_ordem: int = Query(..., ge=1),
+    id_identificador: int = Query(..., ge=1),
+):
+    """Exclui uma linha da ordem de compra aberta (tb_ped_compra_ordem_item)."""
+    with firebird_conn_context() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                """
+                DELETE FROM TB_PED_COMPRA_ORDEM_ITEM
+                WHERE ID_PED_COMPRA_ORDEM = ? AND ID_IDENTIFICADOR = ?
+                """,
+                (id_ped_compra_ordem, id_identificador),
+            )
+            affected = int(cur.rowcount or 0)
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        finally:
+            cur.close()
+    if affected <= 0:
+        raise HTTPException(status_code=404, detail="Item não encontrado na ordem informada.")
+    return {
+        "ok": True,
+        "deleted": 1,
+        "id_ped_compra_ordem": id_ped_compra_ordem,
+        "id_identificador": id_identificador,
+    }
 
 
 def _fetch_giro_itens(
@@ -1411,7 +1483,7 @@ def _row_keys_upper(row: dict) -> dict:
 
 
 def _dash_resumo_diario_payload() -> dict[str, Any]:
-    row = _row_keys_upper(_one_row(_load_sql("resumo_diario.sql")))
+    row = _row_keys_upper(_one_row(_receber_sql(_load_sql("resumo_diario.sql"))))
     saldo_payload = _contas_bancarias_saldos_payload(False)
     tot = saldo_payload["totais"]
     crb = saldo_payload.get("cartoes_receber") or {}
@@ -1491,7 +1563,7 @@ def _dash_resumo_diario_payload() -> dict[str, Any]:
             "pct_mom_mes_calendario": _pct_mom(v_mes_cal, vma),
         },
         "totais_fluxo": {
-            "formula": "recebimentos (baixas a receber) − pagamentos (hoje só T; MTD T+P)",
+            "formula": "O que entrou (recebimentos) menos o que saiu (pagamentos), alinhado aos blocos de cima.",
             "hoje": round(fluxo_dia, 2),
             "mtd": round(fluxo_mtd, 2),
             "hoje_mes_passado": round(fluxo_dia_ant, 2),
@@ -1500,6 +1572,234 @@ def _dash_resumo_diario_payload() -> dict[str, Any]:
             "pct_mom_mtd": _pct_mom_fluxo(fluxo_mtd, fluxo_mtd_ant),
         },
     }
+
+
+# --- Reconciliação MT (tabelas com sufixo _2) x CLIPP (tabelas sem sufixo) — NF compra / NF venda ---
+
+LIMIAR_MEIA_NOTA_PCT = 0.10
+LIMIAR_MEIA_NOTA_VLR = 1.0
+# Valor no CLIPP muito abaixo do MT, com estoque: possível faturamento só no MT
+LIMIAR_MT_SEM_CLIPP_FRAC = 0.02
+
+
+def _mes_para_intervalo(ano: int, mes: int) -> tuple[date, date]:
+    if not (1 <= int(mes) <= 12):
+        raise ValueError("mes 1-12")
+    a = int(ano)
+    m = int(mes)
+    d0 = date(a, m, 1)
+    d1 = date(a, m, calendar.monthrange(a, m)[1])
+    return d0, d1
+
+
+def _reconcil_sql_mes(arq: str, d0: date, d1: date) -> str:
+    s = _load_sql(arq)
+    s = s.replace("__DATA_INI__", f"'{d0.isoformat()}'")
+    s = s.replace("__DATA_FIM__", f"'{d1.isoformat()}'")
+    return s
+
+
+def _situacao_reconcil(vlr_mt: float, vlr_clipp: float) -> str:
+    if vlr_mt < 0.01 and vlr_clipp >= 0.01:
+        return "sem_mt"
+    if vlr_mt >= 0.01 and vlr_clipp < 0.01:
+        return "sem_clipp"
+    gap = vlr_mt - vlr_clipp
+    m = max(abs(vlr_mt), abs(vlr_clipp), 0.0001)
+    frac = abs(gap) / m
+    if abs(gap) >= LIMIAR_MEIA_NOTA_VLR and frac >= LIMIAR_MEIA_NOTA_PCT:
+        return "meia_nota"
+    return "alinhado"
+
+
+def _reconcil_rows_enrich(
+    rows: list[dict], *, is_venda: bool
+) -> list[dict]:
+    out: list[dict] = []
+    for r in rows:
+        d = {k: r[k] for k in r}
+        vmt = float(d.get("VLR_MT") or 0)
+        vcl = float(d.get("VLR_CLIPP") or 0)
+        gap = vmt - vcl
+        m = max(abs(vmt), abs(vcl), 0.0001)
+        frac = abs(gap) / m if m > 0 else 0.0
+        d["VLR_MT"] = round(vmt, 2)
+        d["VLR_CLIPP"] = round(vcl, 2)
+        d["GAP_VLR"] = round(gap, 2)
+        d["GAP_FRAC"] = round(frac, 6)
+        qtd = float(d.get("QTD_ESTOQUE") or 0)
+        d["QTD_ESTOQUE"] = round(qtd, 4)
+        d["SITUACAO"] = _situacao_reconcil(vmt, vcl)
+        if is_venda and qtd > 0.0001 and vmt >= 1.0 and vcl < max(1.0, vmt * LIMIAR_MT_SEM_CLIPP_FRAC):
+            d["ALERTA_MT_SEM_CLIPP_ESTOQUE"] = True
+        else:
+            d["ALERTA_MT_SEM_CLIPP_ESTOQUE"] = False
+        if not is_venda and qtd > 0.0001 and vmt >= 1.0 and vcl < max(1.0, vmt * LIMIAR_MT_SEM_CLIPP_FRAC):
+            d["ALERTA_COMPRA_MT_SEM_CLIPP_ESTOQUE"] = True
+        else:
+            d["ALERTA_COMPRA_MT_SEM_CLIPP_ESTOQUE"] = False
+        out.append(_row_dict_clean(d))
+    return out
+
+
+def _reconcil_kpis(rows: list[dict], *, is_venda: bool) -> dict[str, float | int]:
+    t_mt = sum(float(x.get("VLR_MT") or 0) for x in rows)
+    t_cl = sum(float(x.get("VLR_CLIPP") or 0) for x in rows)
+    n = len(rows)
+    c_meia = sum(1 for x in rows if x.get("SITUACAO") == "meia_nota")
+    c_scl = sum(1 for x in rows if x.get("SITUACAO") == "sem_clipp")
+    c_smt = sum(1 for x in rows if x.get("SITUACAO") == "sem_mt")
+    alt = 0
+    for x in rows:
+        if is_venda and x.get("ALERTA_MT_SEM_CLIPP_ESTOQUE"):
+            alt += 1
+        if not is_venda and x.get("ALERTA_COMPRA_MT_SEM_CLIPP_ESTOQUE"):
+            alt += 1
+    return {
+        "total_mt": round(t_mt, 2),
+        "total_clipp": round(t_cl, 2),
+        "gap": round(t_mt - t_cl, 2),
+        "count_produtos": n,
+        "count_meia_nota": c_meia,
+        "count_sem_clipp": c_scl,
+        "count_sem_mt": c_smt,
+        "count_alertas_estoque": int(alt),
+    }
+
+
+@router.get("/reconciliacao-ger-fiscal")
+def dash_reconciliacao_ger_fiscal(
+    tipo: Annotated[str, Query()] = "compras",
+    ano: Annotated[int | None, Query(ge=2000, le=2100)] = None,
+    mes: Annotated[int | None, Query(ge=1, le=12)] = None,
+):
+    """Cruzamento MT (_2) x CLIPP (sem sufixo) no mesmo mês, por `ID_IDENTIFICADOR`."""
+    if str(tipo).lower() not in ("compras", "vendas"):
+        raise HTTPException(status_code=400, detail="tipo: compras ou vendas")
+    t = date.today()
+    a = int(ano) if ano is not None else t.year
+    m_ = int(mes) if mes is not None else t.month
+    d0, d1 = _mes_para_intervalo(a, m_)
+    arq = (
+        "reconciliacao_compras_ger_fiscal.sql"
+        if str(tipo).lower() == "compras"
+        else "reconciliacao_vendas_ger_fiscal.sql"
+    )
+    is_v = str(tipo).lower() == "vendas"
+    try:
+        sql = _reconcil_sql_mes(arq, d0, d1)
+        _, raw = _execute(sql, max_rows=None)
+        en = _reconcil_rows_enrich(raw, is_venda=is_v)
+        k = _reconcil_kpis(en, is_venda=is_v)
+        k["de"] = d0.isoformat()
+        k["ate"] = d1.isoformat()
+        k["limiar_meia_pct"] = LIMIAR_MEIA_NOTA_PCT
+        k["limiar_meia_vlr"] = LIMIAR_MEIA_NOTA_VLR
+        k["explicado"] = (
+            "Compara o módulo usado no caminhão (MT) com o sistema no escritório, "
+            "no mesmo mês. Compras: notas de entrada. Vendas: notas de saída. "
+            "A quantidade em estoque exibida vem do cadastro usado no móvel."
+        )
+        return {
+            "tipo": str(tipo).lower(),
+            "kpis": k,
+            "rows": en,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.api_route("/cobranca/alerta-atraso/executar", methods=["GET", "POST"])
+def dash_cobranca_alerta_atraso_executar(
+    chave: Annotated[str | None, Query()] = None,
+    x_alerta_chave: Annotated[str | None, Header()] = None,
+):
+    """
+    Clientes em atraso > COBRANCA_ATRASO_DIAS (default 60), sem apontamento no mês e sem baixa no mês; envia WhatsApp.
+    Mesmas tabelas que o dashboard de receber (sufixo _2 opcional via .env).
+
+    Crontab diário (ex.: 08:00):
+    `curl -sS -H 'X-Alerta-Chave: SENHA' 'http://127.0.0.1:8091/dash/cobranca/alerta-atraso/executar'`
+    Use `COBRANCA_ALERTA_CHAVE` no .env (se vazio, não exige cabeçalho — só em rede fechada).
+    """
+    segredo = (os.getenv("COBRANCA_ALERTA_CHAVE") or "").strip()
+    if segredo and (x_alerta_chave or chave or "") != segredo:
+        raise HTTPException(status_code=401, detail="chave de alerta de cobrança inválida")
+    try:
+        from cobranca_alerta_atraso import run_cobranca_alerta_atraso_diario
+
+        return run_cobranca_alerta_atraso_diario(_execute)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.api_route("/cobranca/alerta-atraso/teste", methods=["GET", "POST"])
+def dash_cobranca_alerta_atraso_teste(
+    chave: Annotated[str | None, Query()] = None,
+    x_alerta_chave: Annotated[str | None, Header()] = None,
+):
+    """Executa a mesma consulta do alerta diário, sem enviar WhatsApp (dry_run)."""
+    segredo = (os.getenv("COBRANCA_ALERTA_CHAVE") or "").strip()
+    if segredo and (x_alerta_chave or chave or "") != segredo:
+        raise HTTPException(status_code=401, detail="chave de alerta de cobrança inválida")
+    try:
+        from cobranca_alerta_atraso import run_cobranca_alerta_atraso_diario
+
+        return run_cobranca_alerta_atraso_diario(_execute, dry_run=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.api_route("/estoque/alerta-negativo/executar", methods=["GET", "POST"])
+def dash_estoque_alerta_negativo_executar(
+    chave: Annotated[str | None, Query()] = None,
+    x_alerta_chave: Annotated[str | None, Header()] = None,
+):
+    """
+    Chama a verificação de QTD_ATUAL < 0 (TB_EST_PRODUTO_2) e envia WhatsApp (WAHA) em novas
+    ocorrências. Colocar no crontab (ex. a cada 2–5 min):
+    `curl -sS -H 'X-Alerta-Chave: SENHA' http://127.0.0.1:8091/dash/estoque/alerta-negativo/executar`
+    Se `ALERTA_ESTOQUE_CHAVE` não estiver no .env, só quem acessa localhost deveria chamar a API.
+    """
+    segredo = (os.getenv("ALERTA_ESTOQUE_CHAVE") or "").strip()
+    if segredo and (x_alerta_chave or chave or "") != segredo:
+        raise HTTPException(status_code=401, detail="chave de alerta inválida")
+    try:
+        from estoque_alerta import run_alerta_negativo
+
+        return run_alerta_negativo(_execute)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.api_route("/estoque/alerta-negativo/teste", methods=["GET", "POST"])
+def dash_estoque_alerta_negativo_teste(
+    chave: Annotated[str | None, Query()] = None,
+    x_alerta_chave: Annotated[str | None, Header()] = None,
+):
+    """
+    Envia agora (teste) um único WhatsApp com **todos** os produtos negativos atuais.
+    Não mexe no estado usado pelo `/executar`. Mesma regra de `ALERTA_ESTOQUE_CHAVE`.
+    """
+    segredo = (os.getenv("ALERTA_ESTOQUE_CHAVE") or "").strip()
+    if segredo and (x_alerta_chave or chave or "") != segredo:
+        raise HTTPException(status_code=401, detail="chave de alerta inválida")
+    try:
+        from estoque_alerta import run_alerta_teste_instantaneo
+
+        return run_alerta_teste_instantaneo(_execute)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 @router.get("/resumo-diario")

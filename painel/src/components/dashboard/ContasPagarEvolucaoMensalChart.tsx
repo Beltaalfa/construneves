@@ -73,11 +73,10 @@ export function ContasPagarEvolucaoMensalChart({
           Evolução mensal — {ano}
         </h3>
         <p className="text-xs text-zinc-500 mt-1 leading-relaxed max-w-3xl">
-          <span className="text-sky-400/90">Pago</span>: soma das baixas (
-          <code className="text-zinc-600">TB_CTAPAG_BAIXA</code>) por mês da
-          data da baixa.{" "}
-          <span className="text-amber-400/90">A pagar</span>: saldo em aberto
-          dos títulos com vencimento naquele mês (ainda não quitados).
+          <span className="text-sky-400/90">Pago</span>: o que saiu, mês a mês, na
+          data em que o pagamento foi baixado.{" "}
+          <span className="text-amber-400/90">A pagar</span>: o que ainda está
+          em aberto com vencimento naquele mês.
         </p>
       </div>
       <div className="h-[300px] w-full mt-4">

@@ -1,8 +1,11 @@
 """
 API interna Firebird CLIPP — exposta apenas em 127.0.0.1 (Nginx não encaminha).
 """
+import logging
 import os
-from contextlib import contextmanager
+import threading
+import time
+from contextlib import asynccontextmanager, contextmanager
 
 import firebirdsql
 from dotenv import load_dotenv
@@ -11,6 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import dashboard as dash_module
+import cobranca as cobranca_module
+import notificacoes as notificacoes_module
 
 load_dotenv("/var/www/construneves/.env")
 load_dotenv()
@@ -26,7 +31,83 @@ DATABASE = _env("FIREBIRD_DATABASE", r"C:/MT/Clipp/Base/CLIPP.FDB")
 USER = _env("FIREBIRD_USER", "SYSDBA")
 PASSWORD = _env("FIREBIRD_PASSWORD", "")
 
-app = FastAPI(title="Construneves Firebird API", version="1.0.0")
+log_alerta = logging.getLogger("estoque_alerta_auto")
+_alerta_loop_stop = threading.Event()
+
+# Só inicia o loop com intervalo > 0 (segundos). 0 = desligado (usar só cron, se quiser).
+def _parse_alerta_intervalo() -> int:
+    raw = _env("ALERTA_ESTOQUE_INTERVALO_SEG", "45")
+    if raw == "":
+        return 45
+    try:
+        n = int(raw)
+    except ValueError:
+        return 45
+    return max(0, n)
+
+
+def _estoque_alerta_loop_thread(intervalo: int) -> None:
+    from estoque_alerta import run_alerta_negativo
+    from pedido_compra_negativos import run_auto_adicionar_nao_positivos_em_transicao
+
+    time.sleep(2)
+    while not _alerta_loop_stop.is_set():
+        if _env("ALERTA_ESTOQUE_DESLIGADO", "").lower() in (
+            "1",
+            "true",
+            "yes",
+            "sim",
+        ):
+            if _alerta_loop_stop.wait(timeout=intervalo):
+                return
+            continue
+        try:
+            if _env("WAHA_BASE_URL") and _env("WHATSAPP_ALERTA_ESTOQUE_PARA"):
+                run_alerta_negativo(dash_module._execute)
+            run_auto_adicionar_nao_positivos_em_transicao(
+                dash_module._execute,
+                dash_module.firebird_conn_context,
+            )
+        except Exception as e:
+            log_alerta.exception("alerta estoque automático: %s", e)
+        if _alerta_loop_stop.wait(timeout=intervalo):
+            return
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    if not log_alerta.handlers:
+        h = logging.StreamHandler()
+        h.setFormatter(
+            logging.Formatter("%(levelname)s [%(name)s] %(message)s")
+        )
+        log_alerta.addHandler(h)
+        log_alerta.setLevel(logging.INFO)
+        log_alerta.propagate = False
+    n = _parse_alerta_intervalo()
+    t: threading.Thread | None = None
+    if n > 0:
+        t = threading.Thread(
+            target=_estoque_alerta_loop_thread,
+            name="estoque-alerta-negativo",
+            args=(n,),
+            daemon=True,
+        )
+        t.start()
+        log_alerta.info("Alerta de estoque negativo ativo: a cada %s s (WAHA).", n)
+    else:
+        log_alerta.info(
+            "ALERTA_ESTOQUE_INTERVALO_SEG=0: alerta automático desligado (use cron em /executar se precisar)."
+        )
+    yield
+    _alerta_loop_stop.set()
+    if t and t.is_alive():
+        t.join(timeout=2.0)
+
+
+app = FastAPI(
+    title="Construneves Firebird API", version="1.0.0", lifespan=_lifespan
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -75,6 +156,8 @@ def rows_to_dicts(cur):
 
 dash_module.wire(rows_to_dicts, firebird_connection)
 app.include_router(dash_module.router)
+app.include_router(notificacoes_module.router)
+app.include_router(cobranca_module.router)
 
 
 @app.get("/health")

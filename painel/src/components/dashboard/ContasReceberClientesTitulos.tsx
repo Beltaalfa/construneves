@@ -103,7 +103,7 @@ function TitulosTable({
   return (
     <div className="space-y-2">
       <div
-        className={`overflow-x-auto overflow-y-auto rounded-xl border border-zinc-800/80 bg-zinc-950/30 ${detailMaxHeightClass}`}
+        className={`overflow-x-auto overflow-y-auto overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] rounded-xl border border-zinc-800/80 bg-zinc-950/30 ${detailMaxHeightClass}`}
       >
         <table className="w-full text-xs min-w-[520px]">
           <thead className="sticky top-0 bg-zinc-950/98 z-10 backdrop-blur-sm">
@@ -262,15 +262,14 @@ export function ContasReceberClientesTitulos({
             Clientes e títulos em aberto
           </h3>
           <p className="text-[11px] text-zinc-500 mt-1.5 leading-relaxed max-w-4xl">
-            Use{" "}
-            <span className="text-zinc-400 font-medium">+</span> para ver o
-            analítico. Abra a janela para paginar com mais espaço. Colunas
-            Liberado / Limite de crédito ficam vazias até mapear campos em{" "}
-            <code className="text-cyan-500/70">TB_CLIENTE</code> no SQL.
+            Use o <span className="text-zinc-400 font-medium">+</span> para abrir
+            o detalhe do cliente. Dá para abrir em tela cheia para folhear com
+            mais calma. Colunas de limite de crédito podem ficar vazias se o
+            cadastro ainda não tiver esses dados preenchidos.
           </p>
         </div>
-        <div className="overflow-auto max-h-[min(70vh,560px)]">
-          <table className="w-full text-xs sm:text-sm min-w-[1280px]">
+        <div className="overflow-x-auto overflow-y-auto max-h-[min(70vh,560px)] overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch]">
+          <table className="w-full text-xs sm:text-sm min-w-[720px] md:min-w-[960px] xl:min-w-[1100px] 2xl:min-w-[1280px]">
             <thead className="sticky top-0 bg-zinc-950/98 z-10 backdrop-blur-sm">
               <tr className="border-b border-zinc-700/60">
                 <th className="w-10 px-1 py-2.5" aria-label="Expandir" />
@@ -385,7 +384,7 @@ export function ContasReceberClientesTitulos({
 
       {modalKey ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/75 backdrop-blur-sm p-3 sm:p-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           role="presentation"
           onClick={closeModal}
         >
@@ -393,7 +392,7 @@ export function ContasReceberClientesTitulos({
             role="dialog"
             aria-modal="true"
             aria-labelledby="cr-modal-title"
-            className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border border-zinc-600/60 bg-zinc-950 shadow-2xl shadow-black/50 ring-1 ring-white/5"
+            className="w-full max-w-4xl max-h-[min(90dvh,calc(100svh-1.5rem))] sm:max-h-[90vh] flex flex-col rounded-2xl border border-zinc-600/60 bg-zinc-950 shadow-2xl shadow-black/50 ring-1 ring-white/5 min-h-0"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-zinc-800/80 bg-zinc-900/30">

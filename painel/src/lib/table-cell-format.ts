@@ -37,7 +37,8 @@ export function formatDashboardCell(key: string, val: unknown): string {
     u.includes("DESCONTO") ||
     u.includes("TOTAL_LIQUIDO") ||
     u.includes("TOTAL_PAGTO") ||
-    u.includes("CMV")
+    u.includes("CMV") ||
+    u.includes("ULTIMO_CUSTO_COMPRA")
   )
     return formatBRL(val);
   if (

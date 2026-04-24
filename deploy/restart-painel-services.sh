@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reinicia painel + API. Use se aparecer EADDRINUSE nas portas 3010 ou 8091:
+# Reinicia painel + API. Porta do Next = PORT em .env (ex.: 3001), API = 8091.
 # costuma ser processo antigo (nohup / teste manual) a segurar a porta.
 #
 # Uso:
@@ -8,10 +8,18 @@
 
 set -euo pipefail
 
+ENV_FILE="${ENV_FILE:-/var/www/construneves/.env}"
+PAINEL_PORT="3000"
+if [[ -f "${ENV_FILE}" ]]; then
+  v="$(grep -E '^[[:space:]]*PORT=' "${ENV_FILE}" | head -1 | cut -d= -f2- | tr -d '\r' | tr -d '[:space:]')"
+  [[ -n "${v}" ]] && PAINEL_PORT="${v}"
+fi
+
 free_port() {
   local port="$1"
   local pids
-  pids=$(ss -tlnp 2>/dev/null | grep ":${port} " | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | sort -u)
+  # grep sem match devolve 1; com pipefail isso rebentava o script antes de systemctl start.
+  pids=$(ss -tlnp 2>/dev/null | { grep ":${port} " || true; } | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | sort -u)
   if [[ -n "${pids}" ]]; then
     echo "Porta ${port} em uso por PID(s): ${pids} — a terminar…"
     # systemd pode ser o dono; preferir parar serviços primeiro
@@ -25,13 +33,24 @@ echo "Parar units (liberta portas se possível)…"
 sudo systemctl stop construneves-painel construneves-painel-api 2>/dev/null || true
 sleep 1
 
-free_port 3010
+free_port "${PAINEL_PORT}"
 free_port 8091
 sleep 1
 
-echo "Arrancar units…"
-sudo systemctl start construneves-painel construneves-painel-api
+echo "Arrancar units (API primeiro)…"
+sudo systemctl start construneves-painel-api construneves-painel
 
-sleep 2
-systemctl is-active construneves-painel-api construneves-painel
-echo "OK — teste: curl -s http://127.0.0.1:8091/health && curl -sI http://127.0.0.1:3010/ | head -1"
+sleep 3
+if systemctl is-active --quiet construneves-painel-api &&
+  systemctl is-active --quiet construneves-painel; then
+  echo "OK — ambos active."
+  echo "Teste: curl -sS http://127.0.0.1:8091/health && curl -sSI http://127.0.0.1:${PAINEL_PORT}/ | head -1"
+else
+  echo "ERRO — um ou os dois serviços não ficaram active. Estado:" >&2
+  systemctl is-active construneves-painel-api construneves-painel || true
+  echo "--- últimas linhas do journal (painel):" >&2
+  sudo journalctl -u construneves-painel -n 15 --no-pager >&2
+  echo "--- últimas linhas do journal (API):" >&2
+  sudo journalctl -u construneves-painel-api -n 15 --no-pager >&2
+  exit 1
+fi

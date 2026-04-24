@@ -6,7 +6,7 @@ export default function VendasPage() {
     <Suspense
       fallback={
         <div className="text-sm text-zinc-500 py-12 text-center">
-          Carregando…
+          A carregar…
         </div>
       }
     >

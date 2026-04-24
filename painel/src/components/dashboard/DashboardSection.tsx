@@ -26,7 +26,7 @@ export function DashboardSection({
             {title}
           </h2>
           {description ? (
-            <p className="text-sm text-zinc-500 max-w-3xl leading-relaxed">
+            <p className="text-sm text-zinc-500 max-w-full sm:max-w-3xl leading-relaxed">
               {description}
             </p>
           ) : null}

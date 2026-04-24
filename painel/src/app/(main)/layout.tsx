@@ -1,9 +1,11 @@
 import { LayoutWithSidebar } from "@/components/layout/LayoutWithSidebar";
+import { resolveNavAccessFromCookies } from "@/lib/resolve-nav-access";
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <LayoutWithSidebar>{children}</LayoutWithSidebar>;
+  const navAccess = await resolveNavAccessFromCookies();
+  return <LayoutWithSidebar navAccess={navAccess}>{children}</LayoutWithSidebar>;
 }

@@ -32,6 +32,13 @@ function badgeClass(v: string) {
   return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
 }
 
+function displayValidacao(v: string) {
+  if (v === "DIVERGENTE") return "Divergente";
+  if (v === "SEM CUSTO") return "Sem custo";
+  if (v === "OK") return "Ok";
+  return v;
+}
+
 type SortState = { key: MarkupSortKey; dir: "asc" | "desc" };
 
 function SortIcon({
@@ -105,8 +112,8 @@ export function ValidationMarkupTable({
 
   return (
     <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/30 overflow-hidden">
-      <div className="overflow-x-auto max-h-[min(70vh,720px)] overflow-y-auto">
-        <table className="w-full text-sm min-w-[900px]">
+      <div className="overflow-x-auto max-h-[min(70vh,720px)] overflow-y-auto overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch]">
+        <table className="w-full text-sm min-w-[720px] sm:min-w-[900px]">
           <thead className="sticky top-0 z-10 bg-zinc-950 border-b border-zinc-800">
             <tr>
               <Th
@@ -138,21 +145,21 @@ export function ValidationMarkupTable({
                 onSort={onSort}
               />
               <Th
-                label="Dif MarkUP %"
+                label="Diferença (mark-up %)"
                 sortKey="DIF_MARKUP_PCT"
                 align="right"
                 current={sort}
                 onSort={onSort}
               />
               <Th
-                label="MarkUP sistema %"
+                label="No cadastro %"
                 sortKey="MARKUP_SISTEMA_PCT"
                 align="right"
                 current={sort}
                 onSort={onSort}
               />
               <Th
-                label="MarkUP calc. %"
+                label="Recalculado %"
                 sortKey="MARKUP_CALCULADO_PCT"
                 align="right"
                 current={sort}
@@ -212,9 +219,9 @@ export function ValidationMarkupTable({
                   </td>
                   <td className="px-3 py-2">
                     <span
-                      className={`inline-flex rounded px-2 py-0.5 text-xs font-semibold uppercase border ${badgeClass(v)}`}
+                      className={`inline-flex rounded px-2 py-0.5 text-xs font-semibold border ${badgeClass(v)}`}
                     >
-                      {v}
+                      {displayValidacao(v)}
                     </span>
                   </td>
                 </tr>

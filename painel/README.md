@@ -1,5 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Construneves — API interna e pedido de compra (negativos)
+
+- Variáveis: ver `/var/www/construneves/.env.example` (`CONSTRUNEVES_PED_COMPRA_*`).
+- Teste rápido no servidor (formata com `jq` ou `python3 -m json.tool`):
+
+  ```bash
+  bash /var/www/construneves/deploy/ped-compra-negativos-test.sh
+  ```
+
+- Ou manualmente (uma linha):
+
+  ```bash
+  curl -sS -X POST http://127.0.0.1:8091/notificacoes/pedido-compra-negativos \
+    -H "Content-Type: application/json" -d "{}" | jq .
+  ```
+
+Depois de alterar `.env`, reinicie: `sudo systemctl restart construneves-painel-api.service`.
+
 ## Getting Started
 
 First, run the development server:

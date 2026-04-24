@@ -221,11 +221,8 @@ export function EstoqueComprasHub() {
         <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">
           Estoque e compras
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Material de construção — indicadores alinhados ao giro/cobertura (SQL{" "}
-          <code className="text-zinc-500">analise_giro_estoque</code>
-          ). Clique em KPIs ou gráficos para filtrar as tabelas. Contagem física:
-          integração pendente no CLIPP.
+        <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
+          Giro, cobertura e sugestão de compra (só itens <span className="text-zinc-300">ativos</span>). Clique em KPIs ou gráficos para filtrar. Contagem física de campo integra-se noutro fluxo.
         </p>
       </div>
 
@@ -246,12 +243,12 @@ export function EstoqueComprasHub() {
             onClick={clearChartFilters}
             className="ml-auto px-3 py-1 rounded-lg border border-zinc-600 text-zinc-200 hover:bg-zinc-800 text-xs"
           >
-            Limpar filtros do gráfico/KPI
+            Limpar filtros do gráfico
           </button>
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-3">
+      <div className="flex gap-2 border-b border-zinc-800 pb-3 overflow-x-auto overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] -mx-1 px-1">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -259,8 +256,8 @@ export function EstoqueComprasHub() {
             onClick={() => setTab(t.id)}
             className={
               tab === t.id
-                ? "px-3 py-1.5 rounded-lg text-sm font-medium bg-zinc-800 text-white"
-                : "px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                ? "shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium bg-zinc-800 text-white"
+                : "shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
             }
           >
             {t.label}

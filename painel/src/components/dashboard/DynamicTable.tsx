@@ -7,17 +7,24 @@ type Row = Record<string, unknown>;
 export function DynamicTable({
   rows,
   columns,
+  columnLabels,
   title,
   maxHeightClass = "max-h-[420px]",
   exportFileName,
+  tableMinWidthClass = "min-w-[520px] sm:min-w-[640px]",
 }: {
   rows: Row[];
   columns?: string[];
+  /** Títulos amigáveis no cabeçalho (chave = nome do campo vindo da API). */
+  columnLabels?: Record<string, string>;
   title?: string;
   maxHeightClass?: string;
   /** Se definido, mostra botão de exportação XLSX com estas colunas. */
   exportFileName?: string;
+  /** Largura mínima da tabela (scroll horizontal em ecrãs estreitos). */
+  tableMinWidthClass?: string;
 }) {
+  const headLabel = (k: string) => columnLabels?.[k] ?? k.replace(/_/g, " ");
   if (!rows.length) {
     return (
       <p className="text-sm text-zinc-500 py-6 text-center">
@@ -50,8 +57,10 @@ export function DynamicTable({
           ) : null}
         </div>
       ) : null}
-      <div className={`overflow-auto ${maxHeightClass}`}>
-        <table className="w-full text-xs sm:text-sm min-w-[640px]">
+      <div
+        className={`overflow-x-auto overflow-y-auto overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] ${maxHeightClass}`}
+      >
+        <table className={`w-full text-xs sm:text-sm ${tableMinWidthClass}`}>
           <thead className="sticky top-0 bg-zinc-950/95 z-10 backdrop-blur-sm">
             <tr className="border-b border-zinc-700/50">
               {keys.map((k) => (
@@ -59,7 +68,7 @@ export function DynamicTable({
                   key={k}
                   className="text-left font-medium text-zinc-400 px-3 py-2.5 whitespace-nowrap"
                 >
-                  {k.replace(/_/g, " ")}
+                  {headLabel(k)}
                 </th>
               ))}
             </tr>
@@ -85,7 +94,7 @@ export function DynamicTable({
         </table>
       </div>
       <p className="text-[11px] text-zinc-500 px-3 py-2 border-t border-zinc-800">
-        {formatInt(rows.length)} linha(s) — colunas limitadas para leitura
+        Total: {formatInt(rows.length)} {rows.length === 1 ? "linha" : "linhas"}
       </p>
     </div>
   );

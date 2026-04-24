@@ -195,7 +195,7 @@ export function MarkupValidacaoClient({
           selected={preset === "ALL"}
         />
         <KpiCard
-          label="DIVERGENTE"
+          label="Divergente"
           value={formatInt(stats.divergentes)}
           variant="warn"
           hint={`${formatNumber(stats.pct_divergentes, 2)}% do total`}
@@ -205,7 +205,7 @@ export function MarkupValidacaoClient({
           selected={preset === "DIVERGENTE"}
         />
         <KpiCard
-          label="OK (alinhado)"
+          label="Ok (bate com o cadastro)"
           value={formatInt(stats.ok)}
           variant="accent"
           onClick={() => setPreset((p) => (p === "OK" ? "ALL" : "OK"))}
@@ -214,17 +214,17 @@ export function MarkupValidacaoClient({
         <KpiCard
           label="Sem custo"
           value={formatInt(stats.sem_custo)}
-          hint="PRC_CUSTO ≤ 0"
+          hint="Preço de custo zero ou em branco"
           onClick={() =>
             setPreset((p) => (p === "SEM CUSTO" ? "ALL" : "SEM CUSTO"))
           }
           selected={preset === "SEM CUSTO"}
         />
         <KpiCard
-          label="MarkUP calc. menor 40%"
+          label="Mark-up recalculado abaixo de 40%"
           value={formatInt(stats.produtos_markup_calc_menor_40)}
           variant="danger"
-          hint="Com custo > 0 (markup sobre custo)"
+          hint="Somente itens com custo informado"
           onClick={() =>
             setPreset((p) => (p === "MARKUP_LT_40" ? "ALL" : "MARKUP_LT_40"))
           }
@@ -241,7 +241,7 @@ export function MarkupValidacaoClient({
           hint="Com custo &gt; 0"
         />
         <KpiCard
-          label="Maior |Dif MarkUP|"
+          label="Maior diferença de mark-up (absoluta)"
           value={`${formatNumber(stats.maior_dif_markup_abs_pp, 2)} p.p.`}
         />
       </div>

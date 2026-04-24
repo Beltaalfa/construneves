@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
-import { cookieName, isLoginEnabled, signSession } from "@/lib/auth";
+import {
+  cookieName,
+  isHubAuthEnabled,
+  isLoginEnabled,
+  signSession,
+} from "@/lib/auth";
 
 export async function POST(req: Request) {
   if (!isLoginEnabled()) {
     return NextResponse.json(
       { error: "Login não configurado" },
+      { status: 400 },
+    );
+  }
+  if (isHubAuthEnabled()) {
+    return NextResponse.json(
+      { error: "Login local desativado: use o HUB." },
       { status: 400 },
     );
   }
